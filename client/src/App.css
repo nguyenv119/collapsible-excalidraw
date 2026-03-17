@@ -1,0 +1,241 @@
+/* ─── Reset & Full-Page Canvas ──────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@500;600;700&display=swap');
+
+:root {
+  --canvas-bg: #1a1c22;
+  --canvas-dot: rgba(255, 255, 255, 0.07);
+  --card-bg: #f7f4ef;
+  --card-border: #e0dbd2;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  --card-title-color: #1a1c22;
+  --card-notes-color: #6b6760;
+  --handle-color: #c8a96e;
+  --handle-hover: #e8c98e;
+  --accent: #c8a96e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--canvas-bg);
+  font-family: 'Syne', sans-serif;
+}
+
+/* ─── React Flow Wrapper ────────────────────────────────────────────────── */
+
+.react-flow {
+  height: 100vh;
+  background: var(--canvas-bg);
+}
+
+.react-flow__background {
+  background: var(--canvas-bg);
+}
+
+/* Warm dot grid override */
+.react-flow__background pattern circle,
+.react-flow__background pattern rect {
+  fill: var(--canvas-dot);
+}
+
+/* ─── Controls & MiniMap ────────────────────────────────────────────────── */
+
+.react-flow__controls {
+  background: #252830;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.15s, background 0.15s;
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(200, 169, 110, 0.12);
+  color: var(--accent);
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__minimap {
+  background: #252830;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(26, 28, 34, 0.7);
+}
+
+/* ─── Edge Styles ───────────────────────────────────────────────────────── */
+
+.react-flow__edge-path {
+  stroke: rgba(200, 169, 110, 0.45);
+  stroke-width: 1.5;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* ─── Canvas Node Card ──────────────────────────────────────────────────── */
+
+.kc-node {
+  width: 200px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+  font-family: 'Syne', sans-serif;
+  cursor: default;
+  transition: box-shadow 0.15s, transform 0.1s;
+  position: relative;
+}
+
+.kc-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  border-radius: 6px 6px 0 0;
+  opacity: 0.6;
+}
+
+.kc-node:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(200, 169, 110, 0.25);
+  transform: translateY(-1px);
+}
+
+.kc-node.selected {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 0 2px var(--accent);
+}
+
+.kc-node__inner {
+  padding: 12px 14px 10px;
+}
+
+.kc-node__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--card-title-color);
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  margin: 0 0 6px;
+  word-break: break-word;
+}
+
+.kc-node__notes {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--card-notes-color);
+  line-height: 1.4;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.kc-node__notes--empty {
+  font-style: italic;
+  opacity: 0.5;
+}
+
+/* ─── Handles ───────────────────────────────────────────────────────────── */
+
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background: var(--card-bg);
+  border: 2px solid var(--handle-color);
+  border-radius: 50%;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.react-flow__handle:hover {
+  background: var(--handle-hover);
+  border-color: var(--handle-hover);
+  transform: scale(1.3);
+}
+
+.react-flow__handle-top {
+  top: -5px;
+}
+
+.react-flow__handle-bottom {
+  bottom: -5px;
+}
+
+/* ─── Loading State ─────────────────────────────────────────────────────── */
+
+.kc-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--canvas-bg);
+  z-index: 100;
+}
+
+.kc-loading__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.kc-loading__label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: rgba(200, 169, 110, 0.6);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: kc-pulse 1.4s ease-in-out infinite;
+}
+
+.kc-loading__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.kc-loading__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: kc-bounce 1.2s ease-in-out infinite;
+}
+
+.kc-loading__dot:nth-child(2) { animation-delay: 0.2s; }
+.kc-loading__dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes kc-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes kc-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
