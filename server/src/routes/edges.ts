@@ -60,6 +60,57 @@ export function makeEdgesRouter(database: Database.Database): Router {
     res.status(201).json(edge);
   });
 
+  // PATCH /edges/:id — partially update an edge
+  router.patch('/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const existing = database.prepare('SELECT id FROM edges WHERE id = ?').get(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Edge not found' });
+      return;
+    }
+
+    const allowed = ['source_id', 'target_id', 'source_handle', 'target_handle', 'label'] as const;
+    type AllowedField = (typeof allowed)[number];
+
+    const updates: Partial<Record<AllowedField, unknown>> = {};
+    for (const field of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        updates[field] = (req.body as Record<string, unknown>)[field];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      const edge = database.prepare('SELECT * FROM edges WHERE id = ?').get(id);
+      res.json(edge);
+      return;
+    }
+
+    // Validate new source/target nodes exist if being changed
+    if (updates.source_id) {
+      const sourceExists = database.prepare('SELECT id FROM nodes WHERE id = ?').get(updates.source_id);
+      if (!sourceExists) {
+        res.status(422).json({ error: `source node '${updates.source_id}' does not exist` });
+        return;
+      }
+    }
+    if (updates.target_id) {
+      const targetExists = database.prepare('SELECT id FROM nodes WHERE id = ?').get(updates.target_id);
+      if (!targetExists) {
+        res.status(422).json({ error: `target node '${updates.target_id}' does not exist` });
+        return;
+      }
+    }
+
+    const setClauses = Object.keys(updates).map((k) => `${k} = ?`).join(', ');
+    const values = [...Object.values(updates), id];
+
+    database.prepare(`UPDATE edges SET ${setClauses} WHERE id = ?`).run(...values);
+
+    const edge = database.prepare('SELECT * FROM edges WHERE id = ?').get(id);
+    res.json(edge);
+  });
+
   // DELETE /edges/:id — delete an edge by ID
   // Returns 404 if the edge does not exist
   router.delete('/:id', (req: Request, res: Response) => {

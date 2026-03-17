@@ -80,6 +80,19 @@ export async function createEdge(
   return res.json();
 }
 
+export async function patchEdge(
+  id: string,
+  patch: Partial<Pick<CanvasEdge, 'source_id' | 'target_id' | 'source_handle' | 'target_handle' | 'label'>>
+): Promise<CanvasEdge> {
+  const res = await fetch(`/edges/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`patchEdge failed: ${res.status}`);
+  return res.json();
+}
+
 export async function deleteEdge(id: string): Promise<void> {
   const res = await fetch(`/edges/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`deleteEdge failed: ${res.status}`);
