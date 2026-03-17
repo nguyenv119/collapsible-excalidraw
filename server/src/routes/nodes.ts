@@ -11,7 +11,7 @@ export function makeNodesRouter(database: Database.Database): Router {
 
   // GET /nodes — return all nodes
   router.get('/', (_req: Request, res: Response) => {
-    const nodes = database.prepare('SELECT * FROM nodes').all();
+    const nodes = database.prepare('SELECT * FROM nodes ORDER BY parent_id NULLS FIRST').all();
     res.json(nodes);
   });
 

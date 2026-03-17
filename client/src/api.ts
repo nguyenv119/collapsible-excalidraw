@@ -43,10 +43,16 @@ export async function createNode(
 }
 
 export async function patchNode(
-  _id: string,
-  _patch: Partial<CanvasNodeData>
+  id: string,
+  patch: Partial<CanvasNodeData>
 ): Promise<CanvasNodeData> {
-  return Promise.resolve({} as CanvasNodeData);
+  const res = await fetch(`/nodes/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`patchNode failed: ${res.status}`);
+  return res.json();
 }
 
 export async function deleteNode(_id: string): Promise<void> {

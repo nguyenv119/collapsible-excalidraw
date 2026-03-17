@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -6,13 +6,13 @@ import {
   Controls,
   MiniMap,
 } from '@xyflow/react';
-import type { Edge } from '@xyflow/react';
+import type { Edge, OnNodeDrag } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './App.css';
 
 import { CanvasNode } from './components/CanvasNode';
 import type { CanvasNodeType } from './components/CanvasNode';
-import { fetchNodes, fetchEdges } from './api';
+import { fetchNodes, fetchEdges, patchNode } from './api';
 import type { CanvasNodeData } from './api';
 
 // ─── nodeTypes defined OUTSIDE the component ────────────────────────────────
@@ -42,6 +42,15 @@ export default function App() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ─── Drag persistence ───────────────────────────────────────────────────────
+  // Fire-and-forget: React Flow already updates local position state via its
+  // own onNodesChange; we only need to persist the final resting position.
+  const onNodeDragStop: OnNodeDrag<CanvasNodeType> = useCallback((_event, node) => {
+    patchNode(node.id, { x: node.position.x, y: node.position.y }).catch(
+      (err) => console.error('Failed to persist node position:', err)
+    );
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -105,6 +114,7 @@ export default function App() {
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      onNodeDragStop={onNodeDragStop}
       fitView
       fitViewOptions={{ padding: 0.2 }}
     >
