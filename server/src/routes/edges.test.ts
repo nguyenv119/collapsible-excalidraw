@@ -40,50 +40,60 @@ function buildTestApp() {
   return { app, db };
 }
 
+/** Seed two nodes so edges have valid endpoints. */
+function seedNodes(db: ReturnType<typeof Database>, ids = ['node-1', 'node-2']) {
+  const now = new Date().toISOString();
+  for (const id of ids) {
+    db.prepare(
+      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
+    ).run(id, id, now, now);
+  }
+}
+
 describe('GET /edges', () => {
-  it('returns_empty_array_when_no_edges_exist', async () => {
+  it('returns an empty array when no edges exist', async () => {
     /**
-     * Verifies that GET /edges returns an empty array when the edges table is empty.
+     * GET /edges must return [] (not null/undefined) when the table is empty.
      *
-     * This matters because callers rely on a consistent array type regardless of
-     * whether data exists — a null/undefined response would cause runtime errors
-     * in consuming code that maps over the result.
+     * Why: Callers map() over the result — a non-array response crashes the
+     * client canvas on mount when there are no edges to display.
      *
-     * If this contract breaks, the client canvas would crash on mount when there
-     * are no edges to display.
+     * What breaks: Client crashes on initial load with zero edges.
      */
+    // GIVEN an empty database
     const { app } = buildTestApp();
+
+    // WHEN fetching all edges
     const res = await request(app).get('/edges');
+
+    // THEN the response is an empty array
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
   });
 
-  it('returns_all_persisted_edges', async () => {
+  it('returns all persisted edges with complete fields', async () => {
     /**
-     * Verifies that GET /edges returns all edges that have been inserted,
-     * including their id, source_id, target_id, label, and created_at fields.
+     * GET /edges returns every edge row including id, source_id, target_id,
+     * label, and created_at.
      *
-     * This matters because the React Flow canvas reconstructs its edge state
-     * entirely from this endpoint on every page load — missing or incomplete
-     * rows would result in invisible connections between nodes.
+     * Why: React Flow reconstructs its edge state entirely from this endpoint
+     * on every page load — missing or incomplete rows result in invisible
+     * connections.
      *
-     * If this contract breaks, edges drawn by the user would disappear on
-     * reload even though they were persisted to the DB.
+     * What breaks: Edges disappear on reload even though they were persisted.
      */
+    // GIVEN a database with two nodes and one edge
     const { app, db } = buildTestApp();
+    seedNodes(db);
     const now = new Date().toISOString();
-    // Insert two nodes to reference
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('node-1', 'A', now, now);
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('node-2', 'B', now, now);
     db.prepare(
       `INSERT INTO edges (id, source_id, target_id, label, created_at) VALUES (?, ?, ?, ?, ?)`
     ).run('edge-1', 'node-1', 'node-2', 'my-label', now);
 
+    // WHEN fetching all edges
     const res = await request(app).get('/edges');
+
+    // THEN the response contains the edge with all fields
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0]).toMatchObject({
@@ -96,31 +106,27 @@ describe('GET /edges', () => {
 });
 
 describe('POST /edges', () => {
-  it('creates_edge_and_returns_201_with_new_row', async () => {
+  it('creates an edge and returns 201 with the new row', async () => {
     /**
-     * Verifies that POSTing valid source_id and target_id creates a new edge
-     * row and returns it as JSON with HTTP 201.
+     * POST /edges with valid source_id and target_id inserts a new edge and
+     * returns it as JSON with HTTP 201.
      *
-     * This matters because the UI creates edges when the user drags from one
-     * node handle to another — the response provides the server-assigned ID
-     * that the client stores in React Flow state for later deletion.
+     * Why: The UI creates edges on drag-connect — the response provides the
+     * server-assigned ID the client needs for later deletion.
      *
-     * If this contract breaks, drawn edges would have no stable ID and could
-     * not be deleted via the API, causing phantom edges that reappear on reload.
+     * What breaks: Drawn edges have no stable ID and cannot be deleted,
+     * causing phantom edges that reappear on reload.
      */
+    // GIVEN two existing nodes
     const { app, db } = buildTestApp();
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('src-node', 'Source', now, now);
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('tgt-node', 'Target', now, now);
+    seedNodes(db, ['src-node', 'tgt-node']);
 
+    // WHEN creating an edge between them
     const res = await request(app)
       .post('/edges')
       .send({ source_id: 'src-node', target_id: 'tgt-node' });
 
+    // THEN a new edge is returned with a server-assigned ID
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
       source_id: 'src-node',
@@ -130,208 +136,194 @@ describe('POST /edges', () => {
     expect(res.body.id.length).toBeGreaterThan(0);
   });
 
-  it('creates_edge_with_optional_label', async () => {
+  it('persists an optional label when provided', async () => {
     /**
-     * Verifies that an optional label field is persisted when provided in the
-     * POST body and returned in the response.
+     * POST /edges with a label field stores it and returns it in the response.
      *
-     * This matters because edge labels are a core display feature (arrows can
-     * carry textual meaning) and must round-trip through the API faithfully.
+     * Why: Edge labels carry textual meaning (e.g., "calls", "extends") and
+     * must round-trip through the API faithfully.
      *
-     * If this contract breaks, edge labels set by the user would be silently
-     * dropped, making labeled connections indistinguishable from unlabeled ones.
+     * What breaks: Labels set by the user are silently dropped, making labeled
+     * connections indistinguishable from unlabeled ones.
      */
+    // GIVEN two existing nodes
     const { app, db } = buildTestApp();
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n1', 'N1', now, now);
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n2', 'N2', now, now);
+    seedNodes(db, ['n1', 'n2']);
 
+    // WHEN creating an edge with a label
     const res = await request(app)
       .post('/edges')
       .send({ source_id: 'n1', target_id: 'n2', label: 'calls' });
 
+    // THEN the label is included in the response
     expect(res.status).toBe(201);
     expect(res.body.label).toBe('calls');
   });
 
-  it('returns_422_when_source_id_does_not_exist', async () => {
+  it('rejects with 422 when source_id references a non-existent node', async () => {
     /**
-     * Verifies that POSTing an edge whose source_id references a non-existent
-     * node returns HTTP 422 (Unprocessable Entity).
+     * POST /edges returns 422 when source_id does not match any node.
      *
-     * This matters because dangling edge references would cause React Flow to
-     * render edges with no visible source handle, silently breaking the graph.
+     * Why: Dangling edge references cause React Flow to render edges with no
+     * visible source handle, silently breaking the graph.
      *
-     * If this contract breaks, invalid edges can be inserted into the DB and
-     * would appear as orphaned connections that cannot be cleaned up.
+     * What breaks: Invalid edges are inserted and appear as orphaned
+     * connections that cannot be cleaned up.
      */
+    // GIVEN only one node exists
     const { app, db } = buildTestApp();
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('real-node', 'Real', now, now);
+    seedNodes(db, ['real-node']);
 
+    // WHEN creating an edge with a non-existent source
     const res = await request(app)
       .post('/edges')
       .send({ source_id: 'nonexistent', target_id: 'real-node' });
 
+    // THEN the request is rejected
     expect(res.status).toBe(422);
     expect(res.body).toHaveProperty('error');
   });
 
-  it('returns_422_when_target_id_does_not_exist', async () => {
+  it('rejects with 422 when target_id references a non-existent node', async () => {
     /**
-     * Verifies that POSTing an edge whose target_id references a non-existent
-     * node returns HTTP 422 (Unprocessable Entity).
+     * POST /edges returns 422 when target_id does not match any node.
      *
-     * This is symmetric to the source_id check — both endpoints of an edge
-     * must refer to real nodes to preserve graph integrity.
+     * Why: Both endpoints of an edge must refer to real nodes to preserve
+     * graph integrity — symmetric to the source_id check.
      *
-     * If this contract breaks, edges pointing to deleted or never-created nodes
-     * would be persisted and would appear as broken arrows after reload.
+     * What breaks: Edges pointing to deleted or never-created nodes are
+     * persisted and appear as broken arrows after reload.
      */
+    // GIVEN only one node exists
     const { app, db } = buildTestApp();
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('real-node', 'Real', now, now);
+    seedNodes(db, ['real-node']);
 
+    // WHEN creating an edge with a non-existent target
     const res = await request(app)
       .post('/edges')
       .send({ source_id: 'real-node', target_id: 'nonexistent' });
 
+    // THEN the request is rejected
     expect(res.status).toBe(422);
     expect(res.body).toHaveProperty('error');
   });
 
-  it('returns_422_when_source_id_is_missing', async () => {
+  it('rejects with 422 when source_id is missing', async () => {
     /**
-     * Verifies that POSTing without a source_id returns 422.
+     * POST /edges returns 422 when source_id is omitted from the body.
      *
-     * This matters because source_id is a required field — accepting a request
-     * without it would insert a NULL source into the DB, making the edge
-     * unrenderable by React Flow.
+     * Why: source_id is required — accepting a request without it inserts a
+     * NULL source into the DB, making the edge unrenderable.
      *
-     * If this contract breaks, the UI could accidentally submit malformed
-     * payloads that corrupt the graph state.
+     * What breaks: Malformed payloads corrupt the graph state.
      */
+    // GIVEN a node exists
     const { app, db } = buildTestApp();
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n1', 'N1', now, now);
+    seedNodes(db, ['n1']);
 
+    // WHEN creating an edge without source_id
     const res = await request(app)
       .post('/edges')
       .send({ target_id: 'n1' });
 
+    // THEN the request is rejected
     expect(res.status).toBe(422);
   });
 
-  it('returns_422_when_target_id_is_missing', async () => {
+  it('rejects with 422 when target_id is missing', async () => {
     /**
-     * Verifies that POSTing without a target_id returns 422.
+     * POST /edges returns 422 when target_id is omitted from the body.
      *
-     * Symmetric to missing source_id — both fields are mandatory for an edge
-     * to be meaningful in the graph.
+     * Why: Both fields are mandatory for an edge to be meaningful in the graph
+     * — symmetric to missing source_id.
      *
-     * If this contract breaks, edges with a NULL target would be stored,
-     * breaking React Flow's edge rendering on reload.
+     * What breaks: Edges with a NULL target break React Flow rendering.
      */
+    // GIVEN a node exists
     const { app, db } = buildTestApp();
-    const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n1', 'N1', now, now);
+    seedNodes(db, ['n1']);
 
+    // WHEN creating an edge without target_id
     const res = await request(app)
       .post('/edges')
       .send({ source_id: 'n1' });
 
+    // THEN the request is rejected
     expect(res.status).toBe(422);
   });
 });
 
 describe('DELETE /edges/:id', () => {
-  it('deletes_existing_edge_and_returns_204', async () => {
+  it('removes the edge from the database and returns 204', async () => {
     /**
-     * Verifies that DELETE /edges/:id removes the edge from the database and
-     * returns HTTP 204 No Content.
+     * DELETE /edges/:id removes the row and returns HTTP 204 No Content.
      *
-     * This matters because edge deletion is the mechanism for cleaning up
-     * connections the user no longer wants — if the row remains in the DB
-     * after deletion, the edge would reappear on the next page reload.
+     * Why: Edge deletion cleans up connections the user no longer wants — if
+     * the row persists, it reappears on the next page reload.
      *
-     * If this contract breaks, deleted edges accumulate in the DB and are
-     * re-rendered each time the canvas loads, confusing the user.
+     * What breaks: Deleted edges accumulate and are re-rendered on every
+     * canvas load.
      */
+    // GIVEN an edge exists between two nodes
     const { app, db } = buildTestApp();
+    seedNodes(db, ['n1', 'n2']);
     const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n1', 'N1', now, now);
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n2', 'N2', now, now);
     db.prepare(
       `INSERT INTO edges (id, source_id, target_id, label, created_at) VALUES (?, ?, ?, NULL, ?)`
     ).run('e1', 'n1', 'n2', now);
 
+    // WHEN deleting the edge
     const res = await request(app).delete('/edges/e1');
-    expect(res.status).toBe(204);
 
+    // THEN it returns 204 and the row is gone
+    expect(res.status).toBe(204);
     const remaining = db.prepare('SELECT * FROM edges WHERE id = ?').get('e1');
     expect(remaining).toBeUndefined();
   });
 
-  it('returns_404_when_edge_does_not_exist', async () => {
+  it('returns 404 when the edge does not exist', async () => {
     /**
-     * Verifies that DELETE /edges/:id returns 404 when the requested edge ID
-     * does not exist in the database.
+     * DELETE /edges/:id returns 404 for a non-existent edge ID.
      *
-     * This matters because the client may attempt to delete an edge that was
-     * already removed (e.g., due to a node cascade delete). Without a 404,
-     * there is no way to distinguish a successful delete from an invalid request.
+     * Why: The client may attempt to delete an edge already removed by a node
+     * cascade delete. Without 404, there is no way to distinguish a successful
+     * delete from an invalid request.
      *
-     * If this contract breaks, double-delete requests silently succeed, masking
-     * bugs in client-side state management where edges are deleted twice.
+     * What breaks: Double-delete requests silently succeed, masking bugs in
+     * client-side state management.
      */
+    // GIVEN an empty database
     const { app } = buildTestApp();
+
+    // WHEN deleting a non-existent edge
     const res = await request(app).delete('/edges/nonexistent-id');
+
+    // THEN it returns 404
     expect(res.status).toBe(404);
     expect(res.body).toHaveProperty('error');
   });
 
-  it('edge_is_no_longer_returned_by_get_edges_after_deletion', async () => {
+  it('is no longer returned by GET /edges after deletion', async () => {
     /**
-     * Verifies end-to-end that an edge deleted via DELETE is no longer visible
-     * through GET /edges on the same database.
+     * A deleted edge does not appear in subsequent GET /edges responses.
      *
-     * This matters because the canvas fetches all edges on load — if a deleted
-     * edge still appears in GET /edges, it will be re-rendered, contradicting
-     * the user's intent.
+     * Why: The canvas fetches all edges on load — if a deleted edge still
+     * appears, it re-renders, contradicting the user's intent.
      *
-     * If this contract breaks, users see "ghost" edges reappear every time
-     * they reload the page after deleting a connection.
+     * What breaks: "Ghost" edges reappear every time the page reloads.
      */
+    // GIVEN an edge exists
     const { app, db } = buildTestApp();
+    seedNodes(db, ['n1', 'n2']);
     const now = new Date().toISOString();
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n1', 'N1', now, now);
-    db.prepare(
-      `INSERT INTO nodes (id, title, x, y, created_at, updated_at) VALUES (?, ?, 0, 0, ?, ?)`
-    ).run('n2', 'N2', now, now);
     db.prepare(
       `INSERT INTO edges (id, source_id, target_id, label, created_at) VALUES (?, ?, ?, NULL, ?)`
     ).run('e1', 'n1', 'n2', now);
 
+    // WHEN deleting the edge
     await request(app).delete('/edges/e1');
 
+    // THEN GET /edges returns an empty list
     const res = await request(app).get('/edges');
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(0);
