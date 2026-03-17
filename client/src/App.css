@@ -163,6 +163,13 @@ body,
   flex: 1;
 }
 
+.kc-node__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .kc-node__collapse-btn {
   flex-shrink: 0;
   background: transparent;
@@ -178,6 +185,26 @@ body,
 }
 
 .kc-node__collapse-btn:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.kc-node__add-child-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 0 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--card-notes-color);
+  line-height: 1;
+  opacity: 0.45;
+  transition: opacity 0.1s, color 0.1s;
+  margin-top: 1px;
+}
+
+.kc-node__add-child-btn:hover {
   opacity: 1;
   color: var(--accent);
 }
