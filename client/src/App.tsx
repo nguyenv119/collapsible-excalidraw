@@ -46,6 +46,23 @@ import { buildChildMap, getDescendants } from './collapse';
 // reference on every render, triggering infinite re-renders.
 const nodeTypes = { canvasNode: CanvasNode };
 
+// ─── Style token helpers ─────────────────────────────────────────────────────
+
+/** Map semantic stroke-width tokens to CSS stroke-width values. */
+function strokeWidthToCss(token: string | null): string | undefined {
+  if (token === 'thin') return '1';
+  if (token === 'medium') return '2';
+  if (token === 'thick') return '3';
+  return undefined;
+}
+
+/** Map border/stroke style tokens to SVG strokeDasharray values. */
+function strokeStyleToDasharray(token: string | null): string | undefined {
+  if (token === 'dashed') return '5,5';
+  if (token === 'dotted') return '2,3';
+  return undefined;
+}
+
 // ─── Converters ──────────────────────────────────────────────────────────────
 
 /**
@@ -92,6 +109,11 @@ function dbNodeToFlowNode(
       onToggleCollapse,
       onAddChild,
       onNodeResized,
+      // Visual style tokens — passed to CanvasNode for inline CSS application
+      borderColor: n.border_color,
+      bgColor: n.bg_color,
+      borderWidth: n.border_width,
+      borderStyle: n.border_style,
     },
     ...(n.parent_id
       ? { parentId: n.parent_id, extent: 'parent' as const }
@@ -450,15 +472,24 @@ export default function App() {
 
         // Compute hidden edges (source or target is in hiddenIds)
         setEdges(
-          dbEdges.map((e) => ({
-            id: e.id,
-            source: e.source_id,
-            target: e.target_id,
-            sourceHandle: e.source_handle ?? undefined,
-            targetHandle: e.target_handle ?? undefined,
-            label: e.label ?? undefined,
-            hidden: hiddenIds.has(e.source_id) || hiddenIds.has(e.target_id),
-          }))
+          dbEdges.map((e) => {
+            const strokeWidth = strokeWidthToCss(e.stroke_width);
+            const strokeDasharray = strokeStyleToDasharray(e.stroke_style);
+            const edgeStyle: Record<string, string> = {};
+            if (e.stroke_color) edgeStyle.stroke = e.stroke_color;
+            if (strokeWidth) edgeStyle.strokeWidth = strokeWidth;
+            if (strokeDasharray) edgeStyle.strokeDasharray = strokeDasharray;
+            return {
+              id: e.id,
+              source: e.source_id,
+              target: e.target_id,
+              sourceHandle: e.source_handle ?? undefined,
+              targetHandle: e.target_handle ?? undefined,
+              label: e.label ?? undefined,
+              hidden: hiddenIds.has(e.source_id) || hiddenIds.has(e.target_id),
+              ...(Object.keys(edgeStyle).length > 0 ? { style: edgeStyle } : {}),
+            };
+          })
         );
       } catch (err) {
         setError(

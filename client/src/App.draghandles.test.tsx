@@ -16,6 +16,10 @@ const mockNode: CanvasNodeData = {
   width: 200,
   height: 120,
   collapsed: 0,
+  border_color: null,
+  bg_color: null,
+  border_width: null,
+  border_style: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };

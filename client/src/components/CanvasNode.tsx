@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import { Handle, Position, NodeResizer, useConnection } from '@xyflow/react';
 import type { Node, NodeProps, ResizeDragEvent } from '@xyflow/react';
 import { patchNode } from '../api';
@@ -14,6 +15,11 @@ export type CanvasNodeType = Node<
     onToggleCollapse: (id: string) => void;
     onAddChild: (id: string) => void;
     onNodeResized: (id: string, width: number, height: number) => void;
+    // Visual style tokens from DB
+    borderColor: string | null;
+    bgColor: string | null;
+    borderWidth: string | null;  // 'thin' | 'medium' | 'thick' | null
+    borderStyle: string | null;  // 'solid' | 'dashed' | 'dotted' | null
   },
   'canvasNode'
 >;
@@ -21,9 +27,36 @@ export type CanvasNodeType = Node<
 // ─── Component ───────────────────────────────────────────────────────────────
 // NOTE: nodeTypes must be defined OUTSIDE the component in App.tsx —
 // inline definition causes infinite re-renders.
+/** Map semantic border-width tokens to CSS pixel values. */
+function borderWidthToCss(token: string | null): string | undefined {
+  if (token === 'thin') return '1px';
+  if (token === 'medium') return '2px';
+  if (token === 'thick') return '3px';
+  return undefined;
+}
+
 export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
-  const { title, notes, hasChildren, collapsed, onToggleCollapse, onAddChild, onNodeResized } = data;
+  const {
+    title,
+    notes,
+    hasChildren,
+    collapsed,
+    onToggleCollapse,
+    onAddChild,
+    onNodeResized,
+    borderColor,
+    bgColor,
+    borderWidth,
+    borderStyle,
+  } = data;
   const connection = useConnection();
+
+  const nodeStyle: CSSProperties = {
+    ...(borderColor ? { borderColor } : {}),
+    ...(bgColor ? { backgroundColor: bgColor } : {}),
+    ...(borderWidthToCss(borderWidth) ? { borderWidth: borderWidthToCss(borderWidth) } : {}),
+    ...(borderStyle ? { borderStyle } : {}),
+  };
 
   const handleResizeEnd = useCallback(
     (_event: ResizeDragEvent, params: { x: number; y: number; width: number; height: number }) => {
@@ -52,7 +85,10 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
   );
 
   return (
-    <div className={`kc-node${selected ? ' selected' : ''}${connection.inProgress ? ' show-handles' : ''}`}>
+    <div
+      className={`kc-node${selected ? ' selected' : ''}${connection.inProgress ? ' show-handles' : ''}`}
+      style={nodeStyle}
+    >
       <NodeResizer
         minWidth={150}
         minHeight={60}

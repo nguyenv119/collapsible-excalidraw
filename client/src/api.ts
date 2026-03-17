@@ -10,6 +10,10 @@ export interface CanvasNodeData {
   width: number | null;
   height: number | null;
   collapsed: 0 | 1;
+  border_color: string | null;
+  bg_color: string | null;
+  border_width: string | null;  // 'thin' | 'medium' | 'thick' | null
+  border_style: string | null;  // 'solid' | 'dashed' | 'dotted' | null
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +25,9 @@ export interface CanvasEdge {
   source_handle: string | null;
   target_handle: string | null;
   label: string | null;
+  stroke_color: string | null;
+  stroke_width: string | null;  // 'thin' | 'medium' | 'thick' | null
+  stroke_style: string | null;  // 'solid' | 'dashed' | 'dotted' | null
   created_at: string;
 }
 
@@ -84,7 +91,7 @@ export async function createEdge(
 
 export async function patchEdge(
   id: string,
-  patch: Partial<Pick<CanvasEdge, 'source_id' | 'target_id' | 'source_handle' | 'target_handle' | 'label'>>
+  patch: Partial<Pick<CanvasEdge, 'source_id' | 'target_id' | 'source_handle' | 'target_handle' | 'label' | 'stroke_color' | 'stroke_width' | 'stroke_style'>>
 ): Promise<CanvasEdge> {
   const res = await fetch(`/edges/${id}`, {
     method: 'PATCH',
