@@ -125,57 +125,50 @@ export default function App() {
   const childMapRef = useRef<Map<string, string[]>>(childMap);
   childMapRef.current = childMap;
 
+  // ─── Nodes ref (for reading current state in stable callbacks) ───────────
+  const nodesRef = useRef<CanvasNodeType[]>(nodes);
+  nodesRef.current = nodes;
+
   // ─── Collapse / expand ────────────────────────────────────────────────────
-  // CRITICAL: stable ref via useCallback([]) + childMapRef to avoid including
-  // `childMap` or `nodes` in deps. If we included them, onToggleCollapse would
-  // change on every node state update, which is in node.data, triggering an
-  // infinite re-render loop.
+  // CRITICAL: stable ref via useCallback([]) + nodesRef/childMapRef to avoid
+  // including `childMap` or `nodes` in deps. If we included them,
+  // onToggleCollapse would change on every node state update, which is in
+  // node.data, triggering an infinite re-render loop.
   const onToggleCollapse = useCallback((id: string) => {
+    const currentNodes = nodesRef.current;
+    const node = currentNodes.find((n) => n.id === id);
+    if (!node) return;
+
+    const newCollapsed = !node.data.collapsed;
     const currentChildMap = childMapRef.current;
     const descendants = getDescendants(id, currentChildMap);
     const descendantSet = new Set(descendants);
-    let newCollapsed: boolean | undefined;
 
-    setNodes((nds) => {
-      const node = nds.find((n) => n.id === id);
-      if (!node) return nds;
-
-      newCollapsed = !node.data.collapsed;
-
-      return nds.map((n) => {
+    setNodes((nds) =>
+      nds.map((n) => {
         if (n.id === id) {
-          return { ...n, data: { ...n.data, collapsed: newCollapsed! } };
+          return { ...n, data: { ...n.data, collapsed: newCollapsed } };
         }
         if (descendantSet.has(n.id)) {
-          return { ...n, hidden: newCollapsed! };
+          return { ...n, hidden: newCollapsed };
         }
         return n;
-      });
-    });
+      })
+    );
 
     setEdges((eds) =>
       eds.map((e) => {
         const affectsEdge =
           descendantSet.has(e.source) || descendantSet.has(e.target);
         if (!affectsEdge) return e;
-        // newCollapsed may be undefined on the first setEdges call in a batch;
-        // fall back to reading the edge's current hidden state to determine direction.
-        // Because setNodes is called first and React batches state updates, we
-        // use the same `newCollapsed` captured in setNodes above.
-        return { ...e, hidden: newCollapsed ?? false };
+        return { ...e, hidden: newCollapsed };
       })
     );
 
-    // Persist collapsed state to server (fire-and-forget).
-    // We call this after the setNodes call so newCollapsed is defined.
-    // Using a microtask ensures the state-setter closure has set newCollapsed.
-    Promise.resolve().then(() => {
-      if (newCollapsed !== undefined) {
-        patchNode(id, { collapsed: newCollapsed ? 1 : 0 }).catch((err) =>
-          console.error('Failed to persist collapsed state:', err)
-        );
-      }
-    });
+    // Persist collapsed state to server (fire-and-forget)
+    patchNode(id, { collapsed: newCollapsed ? 1 : 0 }).catch((err) =>
+      console.error('Failed to persist collapsed state:', err)
+    );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── React Flow controlled-mode handlers ──────────────────────────────────
