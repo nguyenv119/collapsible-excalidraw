@@ -7,6 +7,7 @@ import {
   MiniMap,
   applyNodeChanges,
   applyEdgeChanges,
+  reconnectEdge,
 } from '@xyflow/react';
 import type {
   Edge,
@@ -15,6 +16,7 @@ import type {
   OnNodesDelete,
   OnEdgesChange,
   OnConnect,
+  OnReconnect,
   OnEdgesDelete,
   NodeMouseHandler,
 } from '@xyflow/react';
@@ -31,6 +33,7 @@ import {
   patchNode,
   deleteNode,
   createEdge,
+  patchEdge,
   deleteEdge,
 } from './api';
 import type { CanvasNodeData } from './api';
@@ -50,6 +53,9 @@ function dbNodeToFlowNode(n: CanvasNodeData): CanvasNodeType {
     data: { title: n.title, notes: n.notes },
     ...(n.parent_id
       ? { parentId: n.parent_id, extent: 'parent' as const }
+      : {}),
+    ...(n.width != null && n.height != null
+      ? { style: { width: n.width, height: n.height } }
       : {}),
     hidden: false,
   };
@@ -119,6 +125,16 @@ export default function App() {
         ]);
       })
       .catch((err) => console.error('Failed to create edge:', err));
+  }, []);
+
+  const handleReconnect: OnReconnect = useCallback((oldEdge, newConnection) => {
+    setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+    patchEdge(oldEdge.id, {
+      source_id: newConnection.source!,
+      target_id: newConnection.target!,
+      source_handle: newConnection.sourceHandle,
+      target_handle: newConnection.targetHandle,
+    }).catch((err) => console.error('Failed to persist edge reconnect:', err));
   }, []);
 
   const handleEdgesDelete: OnEdgesDelete = useCallback((deletedEdges) => {
@@ -266,6 +282,7 @@ export default function App() {
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onConnect={handleConnect}
+        onReconnect={handleReconnect}
         onNodesDelete={handleNodesDelete}
         onEdgesDelete={handleEdgesDelete}
         fitView

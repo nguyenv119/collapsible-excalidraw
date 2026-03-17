@@ -7,6 +7,8 @@ export interface CanvasNodeData {
   notes: string;
   x: number;
   y: number;
+  width: number | null;
+  height: number | null;
   collapsed: 0 | 1;
   created_at: string;
   updated_at: string;
@@ -77,6 +79,19 @@ export async function createEdge(
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(`createEdge failed: ${res.status}`);
+  return res.json();
+}
+
+export async function patchEdge(
+  id: string,
+  patch: Partial<Pick<CanvasEdge, 'source_id' | 'target_id' | 'source_handle' | 'target_handle' | 'label'>>
+): Promise<CanvasEdge> {
+  const res = await fetch(`/edges/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`patchEdge failed: ${res.status}`);
   return res.json();
 }
 

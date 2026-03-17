@@ -89,16 +89,21 @@ body,
   stroke-width: 1.5;
 }
 
-.react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
   stroke: var(--accent);
   stroke-width: 2;
 }
 
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 4px rgba(200, 169, 110, 0.6));
+}
+
 /* ─── Canvas Node Card ──────────────────────────────────────────────────── */
 
 .kc-node {
-  width: 200px;
+  min-width: 150px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 6px;
@@ -164,34 +169,57 @@ body,
 /* ─── Handles ───────────────────────────────────────────────────────────── */
 
 .react-flow__handle {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background: var(--card-bg);
-  border: 2px solid var(--handle-color);
+  border: 1.5px solid var(--handle-color);
   border-radius: 50%;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kc-node:hover .react-flow__handle,
+.kc-node.selected .react-flow__handle,
+.kc-node.show-handles .react-flow__handle {
+  opacity: 1;
+  pointer-events: all;
 }
 
 .react-flow__handle:hover {
   background: var(--handle-hover);
   border-color: var(--handle-hover);
-  transform: scale(1.3);
+  transform: scale(1.4);
 }
 
 .react-flow__handle-top {
-  top: -5px;
+  top: -3px;
 }
 
 .react-flow__handle-bottom {
-  bottom: -5px;
+  bottom: -3px;
 }
 
 .react-flow__handle-left {
-  left: -5px;
+  left: -3px;
 }
 
 .react-flow__handle-right {
-  right: -5px;
+  right: -3px;
+}
+
+/* ─── Resize Controls ──────────────────────────────────────────────────── */
+
+.react-flow__resize-control.handle {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+  border: none;
+}
+
+.react-flow__resize-control.line {
+  border-color: var(--accent);
 }
 
 /* ─── Loading State ─────────────────────────────────────────────────────── */

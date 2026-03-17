@@ -63,7 +63,7 @@ export function makeNodesRouter(database: Database.Database): Router {
       return;
     }
 
-    const allowed = ['title', 'notes', 'x', 'y', 'collapsed', 'parent_id'] as const;
+    const allowed = ['title', 'notes', 'x', 'y', 'collapsed', 'parent_id', 'width', 'height'] as const;
     type AllowedField = (typeof allowed)[number];
 
     const updates: Partial<Record<AllowedField, unknown>> = {};

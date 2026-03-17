@@ -40,4 +40,12 @@ try {
   db.exec(`ALTER TABLE edges ADD COLUMN target_handle TEXT`);
 } catch { /* column already exists */ }
 
+// Migration: add width/height columns to nodes for resize support
+try {
+  db.exec(`ALTER TABLE nodes ADD COLUMN width REAL`);
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE nodes ADD COLUMN height REAL`);
+} catch { /* column already exists */ }
+
 export default db;
