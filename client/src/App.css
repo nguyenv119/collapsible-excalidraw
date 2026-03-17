@@ -7,7 +7,11 @@
   --canvas-dot: rgba(255, 255, 255, 0.07);
   --card-bg: #f7f4ef;
   --card-border: #e0dbd2;
-  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  --card-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
   --card-title-color: #1a1c22;
   --card-notes-color: #6b6760;
   --handle-color: #c8a96e;
@@ -85,19 +89,28 @@ body,
 /* ─── Edge Styles ───────────────────────────────────────────────────────── */
 
 .react-flow__edge-path {
-  stroke: rgba(200, 169, 110, 0.45);
+  stroke: rgba(200, 169, 110, 0.5);
   stroke-width: 1.5;
+  transition: stroke 0.2s, stroke-width 0.2s;
 }
 
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--accent);
+  stroke: rgba(200, 169, 110, 0.8);
   stroke-width: 2;
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--accent);
   stroke-width: 2.5;
-  filter: drop-shadow(0 0 4px rgba(200, 169, 110, 0.6));
+  filter: drop-shadow(0 0 1.5px rgba(200, 169, 110, 0.9));
+}
+
+/* Connection line while dragging from handle */
+.react-flow__connection-path {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  opacity: 0.7;
 }
 
 /* ─── Canvas Node Card ──────────────────────────────────────────────────── */
@@ -106,11 +119,11 @@ body,
   min-width: 150px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 6px;
+  border-radius: 8px;
   box-shadow: var(--card-shadow);
   font-family: 'Syne', sans-serif;
   cursor: default;
-  transition: box-shadow 0.15s, transform 0.1s;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
   position: relative;
 }
 
@@ -120,23 +133,31 @@ body,
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent), transparent);
-  border-radius: 6px 6px 0 0;
-  opacity: 0.6;
+  height: 2.5px;
+  background: linear-gradient(90deg, var(--accent) 0%, rgba(200, 169, 110, 0.3) 80%, transparent 100%);
+  border-radius: 8px 8px 0 0;
+  opacity: 0.85;
 }
 
 .kc-node:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(200, 169, 110, 0.25);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    0 16px 40px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(200, 169, 110, 0.2);
   transform: translateY(-1px);
 }
 
 .kc-node.selected {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 0 2px var(--accent);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 1.5px var(--accent),
+    0 0 12px rgba(200, 169, 110, 0.08);
 }
 
 .kc-node__inner {
-  padding: 12px 14px 10px;
+  padding: 14px 16px 12px;
 }
 
 .kc-node__title {
@@ -211,15 +232,20 @@ body,
 /* ─── Resize Controls ──────────────────────────────────────────────────── */
 
 .react-flow__resize-control.handle {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: rgba(200, 169, 110, 0.7);
+  border: 1px solid var(--accent);
+  transition: background 0.15s;
+}
+
+.react-flow__resize-control.handle:hover {
   background: var(--accent);
-  border: none;
 }
 
 .react-flow__resize-control.line {
-  border-color: var(--accent);
+  border-color: rgba(200, 169, 110, 0.3);
 }
 
 /* ─── Loading State ─────────────────────────────────────────────────────── */
@@ -287,22 +313,29 @@ body,
 
 .kc-toolbar__btn {
   background: #252830;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.8);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  padding: 8px 16px;
-  border: 1px solid rgba(200, 169, 110, 0.3);
-  border-radius: 6px;
+  letter-spacing: 0.06em;
+  padding: 9px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
 .kc-toolbar__btn:hover {
-  background: rgba(200, 169, 110, 0.12);
-  border-color: var(--accent);
+  background: rgba(200, 169, 110, 0.1);
+  border-color: rgba(200, 169, 110, 0.4);
   color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(200, 169, 110, 0.1) inset;
+}
+
+.kc-toolbar__btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* ─── Node Detail Panel ────────────────────────────────────────────────── */
