@@ -13,8 +13,13 @@ export function CanvasNode({ data, selected }: NodeProps<CanvasNodeType>) {
 
   return (
     <div className={`kc-node${selected ? ' selected' : ''}`}>
-      {/* Target handle — incoming edges connect here */}
-      <Handle type="target" position={Position.Top} />
+      {/* Top — source + target */}
+      <Handle type="target" position={Position.Top} id="top-target" />
+      <Handle type="source" position={Position.Top} id="top-source" />
+
+      {/* Right — source + target */}
+      <Handle type="target" position={Position.Right} id="right-target" />
+      <Handle type="source" position={Position.Right} id="right-source" />
 
       <div className="kc-node__inner">
         <p className="kc-node__title">{title}</p>
@@ -25,8 +30,13 @@ export function CanvasNode({ data, selected }: NodeProps<CanvasNodeType>) {
         )}
       </div>
 
-      {/* Source handle — outgoing edges originate here */}
-      <Handle type="source" position={Position.Bottom} />
+      {/* Bottom — source + target */}
+      <Handle type="target" position={Position.Bottom} id="bottom-target" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" />
+
+      {/* Left — source + target */}
+      <Handle type="target" position={Position.Left} id="left-target" />
+      <Handle type="source" position={Position.Left} id="left-source" />
     </div>
   );
 }

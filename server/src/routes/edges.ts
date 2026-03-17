@@ -18,9 +18,11 @@ export function makeEdgesRouter(database: Database.Database): Router {
   // POST /edges — create a new edge
   // Returns 422 if source_id or target_id do not reference existing nodes
   router.post('/', (req: Request, res: Response) => {
-    const { source_id, target_id, label } = req.body as {
+    const { source_id, target_id, source_handle, target_handle, label } = req.body as {
       source_id?: string;
       target_id?: string;
+      source_handle?: string | null;
+      target_handle?: string | null;
       label?: string | null;
     };
 
@@ -50,9 +52,9 @@ export function makeEdgesRouter(database: Database.Database): Router {
     const now = new Date().toISOString();
 
     database.prepare(`
-      INSERT INTO edges (id, source_id, target_id, label, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, source_id, target_id, label ?? null, now);
+      INSERT INTO edges (id, source_id, target_id, source_handle, target_handle, label, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, source_id, target_id, source_handle ?? null, target_handle ?? null, label ?? null, now);
 
     const edge = database.prepare('SELECT * FROM edges WHERE id = ?').get(id);
     res.status(201).json(edge);

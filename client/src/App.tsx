@@ -99,7 +99,12 @@ export default function App() {
   const handleConnect: OnConnect = useCallback((connection) => {
     if (!connection.source || !connection.target) return;
 
-    createEdge({ source_id: connection.source, target_id: connection.target })
+    createEdge({
+      source_id: connection.source,
+      target_id: connection.target,
+      source_handle: connection.sourceHandle,
+      target_handle: connection.targetHandle,
+    })
       .then((dbEdge) => {
         setEdges((eds) => [
           ...eds,
@@ -107,6 +112,8 @@ export default function App() {
             id: dbEdge.id,
             source: dbEdge.source_id,
             target: dbEdge.target_id,
+            sourceHandle: dbEdge.source_handle ?? undefined,
+            targetHandle: dbEdge.target_handle ?? undefined,
             label: dbEdge.label ?? undefined,
           },
         ]);
@@ -203,6 +210,8 @@ export default function App() {
             id: e.id,
             source: e.source_id,
             target: e.target_id,
+            sourceHandle: e.source_handle ?? undefined,
+            targetHandle: e.target_handle ?? undefined,
             label: e.label ?? undefined,
           }))
         );

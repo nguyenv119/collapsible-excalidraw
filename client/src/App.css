@@ -186,6 +186,14 @@ body,
   bottom: -5px;
 }
 
+.react-flow__handle-left {
+  left: -5px;
+}
+
+.react-flow__handle-right {
+  right: -5px;
+}
+
 /* ─── Loading State ─────────────────────────────────────────────────────── */
 
 .kc-loading {

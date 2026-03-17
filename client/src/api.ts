@@ -16,6 +16,8 @@ export interface CanvasEdge {
   id: string;
   source_id: string;
   target_id: string;
+  source_handle: string | null;
+  target_handle: string | null;
   label: string | null;
   created_at: string;
 }
@@ -67,7 +69,7 @@ export async function deleteNode(id: string): Promise<void> {
 }
 
 export async function createEdge(
-  data: Pick<CanvasEdge, 'source_id' | 'target_id'>
+  data: Pick<CanvasEdge, 'source_id' | 'target_id'> & { source_handle?: string | null; target_handle?: string | null }
 ): Promise<CanvasEdge> {
   const res = await fetch('/edges', {
     method: 'POST',
