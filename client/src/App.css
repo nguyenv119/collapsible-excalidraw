@@ -151,6 +151,7 @@ body,
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 4px;
+  cursor: grab;
 }
 
 .kc-node__title {

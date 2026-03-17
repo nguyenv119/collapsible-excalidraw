@@ -68,6 +68,7 @@ function dbNodeToFlowNode(
     id: n.id,
     type: 'canvasNode',
     position: { x: n.x, y: n.y },
+    dragHandle: '.kc-node__header',
     data: {
       title: n.title,
       notes: n.notes,
