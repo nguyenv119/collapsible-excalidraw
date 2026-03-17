@@ -164,34 +164,43 @@ body,
 /* ─── Handles ───────────────────────────────────────────────────────────── */
 
 .react-flow__handle {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background: var(--card-bg);
-  border: 2px solid var(--handle-color);
+  border: 1.5px solid var(--handle-color);
   border-radius: 50%;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, opacity 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kc-node:hover .react-flow__handle,
+.kc-node.selected .react-flow__handle,
+.kc-node.show-handles .react-flow__handle {
+  opacity: 1;
+  pointer-events: all;
 }
 
 .react-flow__handle:hover {
   background: var(--handle-hover);
   border-color: var(--handle-hover);
-  transform: scale(1.3);
+  transform: scale(1.4);
 }
 
 .react-flow__handle-top {
-  top: -5px;
+  top: -4px;
 }
 
 .react-flow__handle-bottom {
-  bottom: -5px;
+  bottom: -4px;
 }
 
 .react-flow__handle-left {
-  left: -5px;
+  left: -4px;
 }
 
 .react-flow__handle-right {
-  right: -5px;
+  right: -4px;
 }
 
 /* ─── Loading State ─────────────────────────────────────────────────────── */

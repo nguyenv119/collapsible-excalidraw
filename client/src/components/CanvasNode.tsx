@@ -1,4 +1,4 @@
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useConnection } from '@xyflow/react';
 import type { Node, NodeProps } from '@xyflow/react';
 
 // ─── Node type definition ────────────────────────────────────────────────────
@@ -10,9 +10,10 @@ export type CanvasNodeType = Node<{ title: string; notes: string }, 'canvasNode'
 // inline definition causes infinite re-renders.
 export function CanvasNode({ data, selected }: NodeProps<CanvasNodeType>) {
   const { title, notes } = data;
+  const connection = useConnection();
 
   return (
-    <div className={`kc-node${selected ? ' selected' : ''}`}>
+    <div className={`kc-node${selected ? ' selected' : ''}${connection.inProgress ? ' show-handles' : ''}`}>
       {/* Top — source + target */}
       <Handle type="target" position={Position.Top} id="top-target" />
       <Handle type="source" position={Position.Top} id="top-source" />
