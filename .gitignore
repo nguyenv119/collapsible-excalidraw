@@ -12,3 +12,4 @@ BRIEF.md
 *.db
 
 dist/
+*.db*
