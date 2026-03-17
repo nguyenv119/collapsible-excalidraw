@@ -19,6 +19,8 @@ const SCHEMA = `
     id TEXT PRIMARY KEY,
     source_id TEXT,
     target_id TEXT,
+    source_handle TEXT,
+    target_handle TEXT,
     label TEXT,
     created_at TEXT NOT NULL
   );
@@ -149,6 +151,34 @@ describe('POST /edges', () => {
     // THEN the label is included in the response
     expect(res.status).toBe(201);
     expect(res.body.label).toBe('calls');
+  });
+
+  it('persists source_handle and target_handle when provided', async () => {
+    /**
+     * POST /edges stores source_handle and target_handle and returns them in
+     * the 201 response.
+     *
+     * Why: React Flow uses handle IDs to know which port on a node an edge
+     * connects to. If the columns are absent from the test schema the INSERT
+     * fails with a 500, making it impossible to create any edge in tests.
+     * This is the regression test for the schema mismatch bug.
+     *
+     * What breaks: Every POST /edges call returns 500 in the test environment,
+     * even though production works fine, causing false-negative CI failures.
+     */
+    // GIVEN two existing nodes
+    const { app, db } = buildTestApp();
+    seedNodes(db, ['n-a', 'n-b']);
+
+    // WHEN creating an edge with explicit handle IDs
+    const res = await request(app)
+      .post('/edges')
+      .send({ source_id: 'n-a', target_id: 'n-b', source_handle: 'bottom', target_handle: 'top' });
+
+    // THEN the handles are returned in the response
+    expect(res.status).toBe(201);
+    expect(res.body.source_handle).toBe('bottom');
+    expect(res.body.target_handle).toBe('top');
   });
 
   it('rejects with 422 when source_id references a non-existent node', async () => {
