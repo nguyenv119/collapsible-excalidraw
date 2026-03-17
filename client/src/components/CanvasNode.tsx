@@ -13,6 +13,7 @@ export type CanvasNodeType = Node<
     collapsed: boolean;
     onToggleCollapse: (id: string) => void;
     onAddChild: (id: string) => void;
+    onNodeResized: (id: string, width: number, height: number) => void;
   },
   'canvasNode'
 >;
@@ -21,7 +22,7 @@ export type CanvasNodeType = Node<
 // NOTE: nodeTypes must be defined OUTSIDE the component in App.tsx —
 // inline definition causes infinite re-renders.
 export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
-  const { title, notes, hasChildren, collapsed, onToggleCollapse, onAddChild } = data;
+  const { title, notes, hasChildren, collapsed, onToggleCollapse, onAddChild, onNodeResized } = data;
   const connection = useConnection();
 
   const handleResizeEnd = useCallback(
@@ -29,8 +30,9 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
       patchNode(id, { width: params.width, height: params.height, x: params.x, y: params.y }).catch(
         (err) => console.error('Failed to persist node resize:', err)
       );
+      onNodeResized(id, params.width, params.height);
     },
-    [id]
+    [id, onNodeResized]
   );
 
   const handleCollapseClick = useCallback(
