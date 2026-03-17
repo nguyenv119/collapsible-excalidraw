@@ -290,7 +290,7 @@ export default function App() {
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
-        <MiniMap nodeColor="#c8a96e" maskColor="rgba(26,28,34,0.75)" />
+        <MiniMap nodeColor="#d07a5a" maskColor="rgba(43,45,42,0.75)" />
         <Toolbar onNodeCreated={handleNodeCreated} />
       </ReactFlow>
       <NodeDetailPanel
