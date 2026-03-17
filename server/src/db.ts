@@ -48,4 +48,18 @@ try {
   db.exec(`ALTER TABLE nodes ADD COLUMN height REAL`);
 } catch { /* column already exists */ }
 
+// Style columns for nodes and edges
+for (const col of [
+  'ALTER TABLE nodes ADD COLUMN border_color TEXT',
+  'ALTER TABLE nodes ADD COLUMN bg_color TEXT',
+  'ALTER TABLE nodes ADD COLUMN border_width TEXT',
+  'ALTER TABLE nodes ADD COLUMN border_style TEXT',
+  'ALTER TABLE nodes ADD COLUMN font_size TEXT',
+  'ALTER TABLE edges ADD COLUMN stroke_color TEXT',
+  'ALTER TABLE edges ADD COLUMN stroke_width TEXT',
+  'ALTER TABLE edges ADD COLUMN stroke_style TEXT',
+]) {
+  try { db.exec(col); } catch { /* column already exists */ }
+}
+
 export default db;

@@ -70,7 +70,8 @@ export function makeEdgesRouter(database: Database.Database): Router {
       return;
     }
 
-    const allowed = ['source_id', 'target_id', 'source_handle', 'target_handle', 'label'] as const;
+    const allowed = ['source_id', 'target_id', 'source_handle', 'target_handle', 'label',
+      'stroke_color', 'stroke_width', 'stroke_style'] as const;
     type AllowedField = (typeof allowed)[number];
 
     const updates: Partial<Record<AllowedField, unknown>> = {};
