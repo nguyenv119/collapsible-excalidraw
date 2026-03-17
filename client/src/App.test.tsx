@@ -33,6 +33,8 @@ const mockEdge: CanvasEdge = {
   id: 'e1',
   source_id: 'n1',
   target_id: 'n2',
+  source_handle: null,
+  target_handle: null,
   label: null,
   created_at: '2024-01-01T00:00:00Z',
 };

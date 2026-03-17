@@ -5,14 +5,34 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from '@xyflow/react';
-import type { Edge, OnNodeDrag } from '@xyflow/react';
+import type {
+  Edge,
+  OnNodeDrag,
+  OnNodesChange,
+  OnNodesDelete,
+  OnEdgesChange,
+  OnConnect,
+  OnEdgesDelete,
+  NodeMouseHandler,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './App.css';
 
 import { CanvasNode } from './components/CanvasNode';
 import type { CanvasNodeType } from './components/CanvasNode';
-import { fetchNodes, fetchEdges, patchNode } from './api';
+import { Toolbar } from './components/Toolbar';
+import { NodeDetailPanel } from './components/NodeDetailPanel';
+import {
+  fetchNodes,
+  fetchEdges,
+  patchNode,
+  deleteNode,
+  createEdge,
+  deleteEdge,
+} from './api';
 import type { CanvasNodeData } from './api';
 
 // ─── nodeTypes defined OUTSIDE the component ────────────────────────────────
@@ -42,16 +62,139 @@ export default function App() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
+
+  // ─── React Flow controlled-mode handlers ──────────────────────────────────
+  const onNodesChange: OnNodesChange<CanvasNodeType> = useCallback(
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  );
+
+  const onEdgesChange: OnEdgesChange = useCallback(
+    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    []
+  );
 
   // ─── Drag persistence ───────────────────────────────────────────────────────
-  // Fire-and-forget: React Flow already updates local position state via its
-  // own onNodesChange; we only need to persist the final resting position.
-  const onNodeDragStop: OnNodeDrag<CanvasNodeType> = useCallback((_event, node) => {
-    patchNode(node.id, { x: node.position.x, y: node.position.y }).catch(
-      (err) => console.error('Failed to persist node position:', err)
-    );
+  const onNodeDragStop: OnNodeDrag<CanvasNodeType> = useCallback(
+    (_event, node) => {
+      patchNode(node.id, { x: node.position.x, y: node.position.y }).catch(
+        (err) => console.error('Failed to persist node position:', err)
+      );
+    },
+    []
+  );
+
+  // ─── Selection ────────────────────────────────────────────────────────────────
+  const onNodeClick: NodeMouseHandler<CanvasNodeType> = useCallback(
+    (_event, node) => setSelectedNodeId(node.id),
+    []
+  );
+
+  const onPaneClick = useCallback(() => setSelectedNodeId(null), []);
+
+  // ─── Edge creation + deletion ─────────────────────────────────────────────
+  const handleConnect: OnConnect = useCallback((connection) => {
+    if (!connection.source || !connection.target) return;
+
+    createEdge({
+      source_id: connection.source,
+      target_id: connection.target,
+      source_handle: connection.sourceHandle,
+      target_handle: connection.targetHandle,
+    })
+      .then((dbEdge) => {
+        setEdges((eds) => [
+          ...eds,
+          {
+            id: dbEdge.id,
+            source: dbEdge.source_id,
+            target: dbEdge.target_id,
+            sourceHandle: dbEdge.source_handle ?? undefined,
+            targetHandle: dbEdge.target_handle ?? undefined,
+            label: dbEdge.label ?? undefined,
+          },
+        ]);
+      })
+      .catch((err) => console.error('Failed to create edge:', err));
   }, []);
 
+  const handleEdgesDelete: OnEdgesDelete = useCallback((deletedEdges) => {
+    for (const e of deletedEdges) {
+      deleteEdge(e.id).catch((err) =>
+        console.error('Failed to delete edge:', err)
+      );
+    }
+  }, []);
+
+  // ─── Node deletion ─────────────────────────────────────────────────────────
+  // Fired by React Flow after backspace/delete key removes nodes from state.
+  // onNodesChange already handled the local state removal; this persists to server.
+  const handleNodesDelete: OnNodesDelete<CanvasNodeType> = useCallback(
+    (deletedNodes) => {
+      const deletedIds = new Set(deletedNodes.map((n) => n.id));
+
+      // Clear selection if deleted node was selected
+      setSelectedNodeId((prev) => (prev && deletedIds.has(prev) ? null : prev));
+
+      // Remove edges connected to deleted nodes from local state
+      setEdges((eds) =>
+        eds.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target))
+      );
+
+      // Persist to server (server cascades edge deletion)
+      for (const n of deletedNodes) {
+        deleteNode(n.id).catch((err) =>
+          console.error('Failed to delete node:', err)
+        );
+      }
+    },
+    []
+  );
+
+  // Delete node from panel button — must handle both local state and server
+  const handleDeleteNode = useCallback(
+    (id: string) => {
+      setNodes((nds) => nds.filter((n) => n.id !== id));
+      setEdges((eds) =>
+        eds.filter((e) => e.source !== id && e.target !== id)
+      );
+      setSelectedNodeId(null);
+
+      deleteNode(id).catch((err) =>
+        console.error('Failed to delete node:', err)
+      );
+    },
+    []
+  );
+
+  // ─── Node creation ────────────────────────────────────────────────────────
+  const handleNodeCreated = useCallback((dbNode: CanvasNodeData) => {
+    setNodes((nds) => [...nds, dbNodeToFlowNode(dbNode)]);
+  }, []);
+
+  // ─── Node update (from panel) ──────────────────────────────────────────────
+  const handleNodeUpdate = useCallback(
+    (id: string, patch: { title?: string; notes?: string }) => {
+      // Optimistic local update
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, ...patch } } : n
+        )
+      );
+      // Fire-and-forget persist
+      patchNode(id, patch).catch((err) =>
+        console.error('Failed to persist node update:', err)
+      );
+    },
+    []
+  );
+
+  const handlePanelClose = useCallback(() => setSelectedNodeId(null), []);
+
+  // ─── Initial data load ────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
@@ -67,6 +210,8 @@ export default function App() {
             id: e.id,
             source: e.source_id,
             target: e.target_id,
+            sourceHandle: e.source_handle ?? undefined,
+            targetHandle: e.target_handle ?? undefined,
             label: e.label ?? undefined,
           }))
         );
@@ -110,17 +255,33 @@ export default function App() {
   }
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      onNodeDragStop={onNodeDragStop}
-      fitView
-      fitViewOptions={{ padding: 0.2 }}
-    >
-      <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
-      <Controls />
-      <MiniMap nodeColor="#c8a96e" maskColor="rgba(26,28,34,0.75)" />
-    </ReactFlow>
+    <>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeDragStop={onNodeDragStop}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
+        onConnect={handleConnect}
+        onNodesDelete={handleNodesDelete}
+        onEdgesDelete={handleEdgesDelete}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+      >
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
+        <Controls />
+        <MiniMap nodeColor="#c8a96e" maskColor="rgba(26,28,34,0.75)" />
+        <Toolbar onNodeCreated={handleNodeCreated} />
+      </ReactFlow>
+      <NodeDetailPanel
+        node={selectedNode}
+        onUpdate={handleNodeUpdate}
+        onDelete={handleDeleteNode}
+        onClose={handlePanelClose}
+      />
+    </>
   );
 }

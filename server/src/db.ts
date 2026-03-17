@@ -25,9 +25,19 @@ db.exec(`
     id TEXT PRIMARY KEY,
     source_id TEXT,
     target_id TEXT,
+    source_handle TEXT,
+    target_handle TEXT,
     label TEXT,
     created_at TEXT NOT NULL
   );
 `);
+
+// Migration: add handle columns to existing databases
+try {
+  db.exec(`ALTER TABLE edges ADD COLUMN source_handle TEXT`);
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE edges ADD COLUMN target_handle TEXT`);
+} catch { /* column already exists */ }
 
 export default db;
