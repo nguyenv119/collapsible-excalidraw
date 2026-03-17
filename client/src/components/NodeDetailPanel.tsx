@@ -21,6 +21,15 @@ const BG_COLORS = [
   { id: 'gray', label: 'Gray', color: '#f3f4f6', display: '#f3f4f6', border: null },
 ];
 
+const FONT_COLORS = [
+  { id: 'auto', label: 'Auto', color: null },
+  { id: 'black', label: 'Black', color: '#1a1a1a' },
+  { id: 'white', label: 'White', color: '#ffffff' },
+  { id: 'red', label: 'Red', color: '#ef4444' },
+  { id: 'blue', label: 'Blue', color: '#3b82f6' },
+  { id: 'gray', label: 'Gray', color: '#6b7280' },
+];
+
 const BORDER_WIDTHS = [
   { id: 'thin', label: '—', title: 'Thin' },
   { id: 'medium', label: '–', title: 'Medium' },
@@ -44,6 +53,7 @@ interface NodeDetailPanelProps {
     bg_color?: string | null;
     border_width?: string | null;
     border_style?: string | null;
+    font_color?: string | null;
   }) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -132,6 +142,11 @@ export function NodeDetailPanel({
     onUpdate(node.id, { bg_color: color });
   };
 
+  const handleFontColor = (color: string | null) => {
+    if (!node) return;
+    onUpdate(node.id, { font_color: color });
+  };
+
   const handleBorderWidth = (width: string) => {
     if (!node) return;
     // Toggle off if clicking the active value
@@ -149,6 +164,7 @@ export function NodeDetailPanel({
 
   const activeStroke = node.data.border_color;
   const activeBg = node.data.bg_color;
+  const activeFontColor = node.data.font_color;
   const activeWidth = node.data.border_width;
   const activeStyle = node.data.border_style;
 
@@ -232,6 +248,42 @@ export function NodeDetailPanel({
                     borderColor: b.border ?? 'rgba(0,0,0,0.18)',
                   }}
                 />
+              ))}
+            </div>
+          </div>
+
+          <div className="kc-style-row">
+            <span className="kc-style-row__label">Font</span>
+            <div className="kc-style-swatches" data-testid="font-color-swatches">
+              {FONT_COLORS.map((f) => (
+                <button
+                  key={f.id}
+                  data-testid={`font-color-swatch-${f.id}`}
+                  aria-pressed={activeFontColor === f.color}
+                  className={`kc-swatch kc-swatch--font${activeFontColor === f.color ? ' kc-swatch--active' : ''}`}
+                  title={f.label}
+                  onClick={() => handleFontColor(f.color)}
+                  style={
+                    f.color === null
+                      ? {
+                          background: 'transparent',
+                          border: '1.5px solid rgba(255,255,255,0.25)',
+                          color: 'rgba(255,255,255,0.5)',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textDecoration: 'line-through',
+                        }
+                      : {
+                          background: 'transparent',
+                          border: `1.5px solid ${f.color}`,
+                          color: f.color,
+                          fontSize: 10,
+                          fontWeight: 700,
+                        }
+                  }
+                >
+                  A
+                </button>
               ))}
             </div>
           </div>

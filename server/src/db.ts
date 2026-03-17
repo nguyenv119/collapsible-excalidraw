@@ -62,4 +62,9 @@ for (const col of [
   try { db.exec(col); } catch { /* column already exists */ }
 }
 
+// Migration: add font_color column to nodes
+try {
+  db.exec(`ALTER TABLE nodes ADD COLUMN font_color TEXT`);
+} catch { /* column already exists */ }
+
 export default db;

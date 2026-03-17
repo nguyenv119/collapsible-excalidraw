@@ -15,6 +15,7 @@ export interface CanvasNodeData {
   border_width: string | null;
   border_style: string | null;
   font_size: string | null;
+  font_color: string | null;
   created_at: string;
   updated_at: string;
 }

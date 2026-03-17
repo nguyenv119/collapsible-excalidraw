@@ -309,3 +309,99 @@ describe('App — styling panel: EdgeDetailPanel', () => {
     expect(container.querySelector('[data-testid="edge-bg-swatches"]')).toBeNull();
   });
 });
+
+describe('App — font color', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('node with font_color renders with color inline style on .kc-node__inner', async () => {
+    /**
+     * Verifies that a node loaded from the server with font_color = '#ef4444'
+     * receives an inline color style on the .kc-node__inner div, so title and
+     * notes text inherit the chosen color.
+     *
+     * Why: Font color is applied via an inline style on the inner div (not the
+     * outer .kc-node div) so it cascades to child text elements without
+     * overriding the border/background on the card wrapper.
+     *
+     * What breaks: Reloading the canvas after setting a font color shows the
+     * node with the default text color — the font color is lost on page reload.
+     */
+    // GIVEN a node stored with font_color '#ef4444' is loaded from the server
+    const coloredNode: CanvasNodeData = { ...styledNode, font_color: '#ef4444' };
+    // REVIEW: mocking core dependency — test may not reflect real behavior
+    vi.spyOn(api, 'fetchNodes').mockResolvedValue([coloredNode]);
+    vi.spyOn(api, 'fetchEdges').mockResolvedValue([styledEdge]);
+    vi.spyOn(api, 'patchNode').mockResolvedValue(coloredNode);
+    vi.spyOn(api, 'patchEdge').mockResolvedValue(styledEdge);
+
+    // WHEN App mounts
+    const { container } = render(<App />);
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow')).not.toBeNull();
+    });
+
+    // THEN the .kc-node__inner element has inline color: rgb(239, 68, 68)
+    await waitFor(() => {
+      const innerEl = container.querySelector('[data-id="node-style-1"] .kc-node__inner') as HTMLElement | null;
+      expect(innerEl).not.toBeNull();
+      expect(innerEl!.style.color).toBe('rgb(239, 68, 68)');
+    });
+  });
+
+  it('clicking a font color swatch calls onUpdate with the selected font_color', async () => {
+    /**
+     * Verifies that clicking a font color swatch in the NodeDetailPanel
+     * immediately persists via patchNode with the correct font_color value.
+     *
+     * Why: Font color swatches are immediate/non-debounced like other style
+     * controls. Clicking the swatch must fire patchNode right away so the
+     * color is saved without the user needing to perform another action.
+     *
+     * What breaks: Clicking a font color swatch changes the visual appearance
+     * locally but the change is never saved to the server, so it is lost on
+     * page reload.
+     */
+    // GIVEN App loads with one node and the panel is visible
+    const patchSpy = vi.spyOn(api, 'patchNode').mockResolvedValue({
+      ...styledNode,
+      font_color: '#ef4444',
+    });
+    vi.spyOn(api, 'fetchNodes').mockResolvedValue([styledNode]);
+    vi.spyOn(api, 'fetchEdges').mockResolvedValue([styledEdge]);
+    vi.spyOn(api, 'patchEdge').mockResolvedValue(styledEdge);
+
+    // WHEN App mounts, node is clicked, then a font color swatch is clicked
+    const { container } = render(<App />);
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow')).not.toBeNull();
+    });
+
+    const nodeEl = container.querySelector('[data-id="node-style-1"]');
+    expect(nodeEl).not.toBeNull();
+    fireEvent.click(nodeEl!);
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="font-color-swatches"]')).not.toBeNull();
+    });
+
+    const redFontSwatch = container.querySelector('[data-testid="font-color-swatch-red"]');
+    expect(redFontSwatch).not.toBeNull();
+    fireEvent.click(redFontSwatch!);
+
+    // THEN patchNode is called with font_color: '#ef4444'
+    await waitFor(() => {
+      expect(patchSpy).toHaveBeenCalledWith(
+        'node-style-1',
+        expect.objectContaining({ font_color: '#ef4444' })
+      );
+    });
+
+    // AND the swatch is marked active in the DOM
+    await waitFor(() => {
+      const swatch = container.querySelector('[data-testid="font-color-swatch-red"]');
+      expect(swatch?.getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+});
