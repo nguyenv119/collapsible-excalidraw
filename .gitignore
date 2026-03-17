@@ -4,7 +4,6 @@ node_modules/
 .claude
 AGENTS.md
 EXAMPLE.md
-CLAUDE.md
 BRIEF.md
 
 # Dolt database files (added by bd init)

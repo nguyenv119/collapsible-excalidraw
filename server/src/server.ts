@@ -2,12 +2,13 @@ import express from 'express';
 import type { Database as DatabaseType } from 'better-sqlite3';
 import db from './db';
 import { makeNodesRouter } from './routes/nodes';
+import { makeEdgesRouter } from './routes/edges';
 
 export function createApp(database: DatabaseType) {
   const app = express();
   app.use(express.json());
   app.use('/nodes', makeNodesRouter(database));
-  app.get('/edges', (_req, res) => res.json([]));
+  app.use('/edges', makeEdgesRouter(database));
   return app;
 }
 
