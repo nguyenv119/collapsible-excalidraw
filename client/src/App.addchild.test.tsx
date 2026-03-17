@@ -20,6 +20,7 @@ const rootNode: CanvasNodeData = {
   bg_color: null,
   border_width: null,
   border_style: null,
+  font_size: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
@@ -45,6 +46,7 @@ const newChildNode: CanvasNodeData = {
   bg_color: null,
   border_width: null,
   border_style: null,
+  font_size: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };

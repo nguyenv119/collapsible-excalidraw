@@ -51,10 +51,11 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
   } = data;
   const connection = useConnection();
 
+  const borderWidthCss = borderWidthToCss(borderWidth);
   const nodeStyle: CSSProperties = {
     ...(borderColor ? { borderColor } : {}),
     ...(bgColor ? { backgroundColor: bgColor } : {}),
-    ...(borderWidthToCss(borderWidth) ? { borderWidth: borderWidthToCss(borderWidth) } : {}),
+    ...(borderWidthCss ? { borderWidth: borderWidthCss } : {}),
     ...(borderStyle ? { borderStyle } : {}),
   };
 

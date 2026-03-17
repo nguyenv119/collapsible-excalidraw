@@ -297,6 +297,12 @@ export default function App() {
       target_handle: connection.targetHandle,
     })
       .then((dbEdge) => {
+        const strokeWidth = strokeWidthToCss(dbEdge.stroke_width);
+        const strokeDasharray = strokeStyleToDasharray(dbEdge.stroke_style);
+        const edgeStyle: Record<string, string> = {};
+        if (dbEdge.stroke_color) edgeStyle.stroke = dbEdge.stroke_color;
+        if (strokeWidth) edgeStyle.strokeWidth = strokeWidth;
+        if (strokeDasharray) edgeStyle.strokeDasharray = strokeDasharray;
         setEdges((eds) => [
           ...eds,
           {
@@ -306,6 +312,7 @@ export default function App() {
             sourceHandle: dbEdge.source_handle ?? undefined,
             targetHandle: dbEdge.target_handle ?? undefined,
             label: dbEdge.label ?? undefined,
+            ...(Object.keys(edgeStyle).length > 0 ? { style: edgeStyle } : {}),
           },
         ]);
       })

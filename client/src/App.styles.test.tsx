@@ -20,6 +20,7 @@ const baseNode: CanvasNodeData = {
   bg_color: null,
   border_width: null,
   border_style: null,
+  font_size: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
@@ -238,89 +239,19 @@ describe('App — node styling fields', () => {
     const { container } = render(<App />);
     await waitFor(() => { expect(container.querySelector('.react-flow')).not.toBeNull(); });
 
-    // THEN the .kc-node has no borderColor, backgroundColor, or borderWidth inline
+    // THEN the .kc-node has no borderColor, backgroundColor, borderWidth, or borderStyle inline
     await waitFor(() => {
       const kcNode = container.querySelector('.kc-node') as HTMLElement | null;
       expect(kcNode).not.toBeNull();
       expect(kcNode!.style.borderColor).toBe('');
       expect(kcNode!.style.backgroundColor).toBe('');
       expect(kcNode!.style.borderWidth).toBe('');
+      expect(kcNode!.style.borderStyle).toBe('');
     });
   });
 });
 
-// ─── Tests: edge styling fields ────────────────────────────────────────────────
-
-describe('App — edge styling fields on CanvasEdge interface', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('CanvasEdge interface includes stroke_color stroke_width stroke_style fields', () => {
-    /**
-     * Verifies that the CanvasEdge TypeScript interface includes the three
-     * stroke styling fields with the correct types.
-     *
-     * Why: The server returns these fields from GET /edges; if the interface
-     * doesn't include them, TypeScript will strip them on assignment and the
-     * client will never be able to read or apply them.
-     *
-     * What breaks: Edge styles are always null/undefined even when the server
-     * returns valid values — edge customization appears to not work.
-     */
-    // GIVEN a CanvasEdge object with all three stroke fields
-    const edge: CanvasEdge = {
-      id: 'e1',
-      source_id: 'n1',
-      target_id: 'n2',
-      source_handle: null,
-      target_handle: null,
-      label: null,
-      stroke_color: '#ff0000',
-      stroke_width: 'medium',
-      stroke_style: 'dashed',
-      created_at: '2024-01-01T00:00:00Z',
-    };
-
-    // WHEN we read the stroke fields
-    const { stroke_color, stroke_width, stroke_style } = edge;
-
-    // THEN they have the values we set
-    expect(stroke_color).toBe('#ff0000');
-    expect(stroke_width).toBe('medium');
-    expect(stroke_style).toBe('dashed');
-  });
-
-  it('CanvasEdge stroke fields can be null', () => {
-    /**
-     * Verifies that the CanvasEdge stroke fields accept null, since the DB
-     * columns default to NULL for un-styled edges.
-     *
-     * Why: If the fields were typed as non-nullable strings, TypeScript would
-     * require callers to supply a value, breaking fetchEdges deserialization
-     * for edges that have never been styled.
-     *
-     * What breaks: TypeScript errors when building fetchEdges response objects
-     * that omit stroke fields, preventing un-styled edges from compiling.
-     */
-    // GIVEN a CanvasEdge with null stroke fields
-    const edge: CanvasEdge = {
-      id: 'e2',
-      source_id: 'n1',
-      target_id: 'n2',
-      source_handle: null,
-      target_handle: null,
-      label: null,
-      stroke_color: null,
-      stroke_width: null,
-      stroke_style: null,
-      created_at: '2024-01-01T00:00:00Z',
-    };
-
-    // WHEN we check the stroke fields
-    // THEN they are null (TypeScript permits null assignment — this test verifies the interface)
-    expect(edge.stroke_color).toBeNull();
-    expect(edge.stroke_width).toBeNull();
-    expect(edge.stroke_style).toBeNull();
-  });
-});
+// Note: Edge styling render tests are in App.edgestyles.test.tsx.
+// They require mocking @xyflow/react at the module level (vi.mock hoisting),
+// which would interfere with the node styling tests above (those rely on
+// ReactFlow rendering CanvasNode children to produce .kc-node DOM elements).
