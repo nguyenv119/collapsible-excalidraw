@@ -5,6 +5,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  SelectionMode,
   applyNodeChanges,
   applyEdgeChanges,
   reconnectEdge,
@@ -111,6 +112,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'pan' | 'select'>('pan');
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
 
@@ -199,6 +201,25 @@ export default function App() {
   );
 
   const onPaneClick = useCallback(() => setSelectedNodeId(null), []);
+
+  // ─── Mode keyboard shortcuts (V = select, H = pan) ────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'v' || e.key === 'V') setMode('select');
+      if (e.key === 'h' || e.key === 'H') setMode('pan');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ─── Multi-select: close panel when >1 node selected ─────────────────────
+  const handleSelectionChange = useCallback(
+    ({ nodes: selectedNodes }: { nodes: CanvasNodeType[] }) => {
+      if (selectedNodes.length > 1) setSelectedNodeId(null);
+    },
+    []
+  );
 
   // ─── Edge creation + deletion ─────────────────────────────────────────────
   const handleConnect: OnConnect = useCallback((connection) => {
@@ -421,13 +442,18 @@ export default function App() {
         onReconnect={handleReconnect}
         onNodesDelete={handleNodesDelete}
         onEdgesDelete={handleEdgesDelete}
+        onSelectionChange={handleSelectionChange}
+        panOnDrag={mode === 'pan'}
+        selectionOnDrag={mode === 'select'}
+        selectionMode={SelectionMode.Partial}
+        multiSelectionKeyCode={['Meta', 'Control']}
         fitView
         fitViewOptions={{ padding: 0.2 }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
         <MiniMap nodeColor="#d07a5a" maskColor="rgba(43,45,42,0.75)" />
-        <Toolbar onNodeCreated={handleNodeCreated} />
+        <Toolbar onNodeCreated={handleNodeCreated} mode={mode} onToggleMode={setMode} />
       </ReactFlow>
       <NodeDetailPanel
         node={selectedNode}

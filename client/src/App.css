@@ -121,6 +121,8 @@ body,
 
 .kc-node {
   min-width: 150px;
+  height: 100%;
+  overflow: hidden;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 6px;
@@ -319,6 +321,68 @@ body,
   top: 16px;
   left: 16px;
   z-index: 10;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ─── Mode toggle group ──────────────────────────────────────────────────── */
+
+.kc-toolbar__mode-group {
+  display: flex;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.kc-toolbar__mode-btn {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--ui-border);
+  color: var(--ui-text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.kc-toolbar__mode-btn:last-child {
+  border-right: none;
+}
+
+.kc-toolbar__mode-btn:hover {
+  color: var(--ui-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.kc-toolbar__mode-btn--active {
+  color: var(--accent);
+  background: rgba(208, 122, 90, 0.1);
+}
+
+.kc-toolbar__mode-btn--active:hover {
+  background: rgba(208, 122, 90, 0.14);
+}
+
+.kc-toolbar__kbd {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  color: inherit;
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  padding: 1px 3px;
+  line-height: 1;
 }
 
 .kc-toolbar__btn {
