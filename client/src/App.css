@@ -140,12 +140,12 @@ body,
 /* white border + light text so it remains legible on the dark canvas.        */
 
 .kc-node--transparent {
-  background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
 }
 
 .kc-node--transparent:hover {
-  border-color: rgba(255, 255, 255, 0.48) !important;
+  border-color: rgba(255, 255, 255, 0.56) !important;
 }
 
 .kc-node--transparent.selected {
@@ -776,6 +776,21 @@ body,
     rgba(255, 255, 255, 0.18) 0% 25%,
     rgba(255, 255, 255, 0.04) 0% 50%
   ) 0 0 / 7px 7px !important;
+}
+
+/* ─── Font Color Swatches ──────────────────────────────────────────────────── */
+/* "A" letter swatches — slightly taller to read well, border-radius for pill look */
+
+.kc-swatch--font {
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
 }
 
 /* ─── Style Toggle Buttons ───────────────────────────────────────────────── */

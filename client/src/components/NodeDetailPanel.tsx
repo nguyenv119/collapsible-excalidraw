@@ -269,16 +269,12 @@ export function NodeDetailPanel({
                           background: 'transparent',
                           border: '1.5px solid rgba(255,255,255,0.25)',
                           color: 'rgba(255,255,255,0.5)',
-                          fontSize: 10,
-                          fontWeight: 700,
                           textDecoration: 'line-through',
                         }
                       : {
                           background: 'transparent',
                           border: `1.5px solid ${f.color}`,
                           color: f.color,
-                          fontSize: 10,
-                          fontWeight: 700,
                         }
                   }
                 >
