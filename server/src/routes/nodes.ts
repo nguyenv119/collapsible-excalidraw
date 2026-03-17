@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { uuidv7 } from 'uuidv7';
 import type Database from 'better-sqlite3';
-import db from '../db';
 
 /**
  * Build the nodes router with the given database instance.
@@ -145,6 +144,3 @@ export function makeNodesRouter(database: Database.Database): Router {
 
   return router;
 }
-
-// Default export using the singleton production database
-export default makeNodesRouter(db);

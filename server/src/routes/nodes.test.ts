@@ -1,41 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import express from 'express';
 import Database from 'better-sqlite3';
-import { makeNodesRouter } from './nodes';
+import { createApp } from '../server';
 
-/**
- * Build an isolated Express app backed by a fresh in-memory SQLite database.
- * Each test gets its own DB instance so tests never share state.
- */
+const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS nodes (
+    id TEXT PRIMARY KEY,
+    parent_id TEXT REFERENCES nodes(id),
+    title TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    x REAL NOT NULL DEFAULT 0,
+    y REAL NOT NULL DEFAULT 0,
+    collapsed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS edges (
+    id TEXT PRIMARY KEY,
+    source_id TEXT,
+    target_id TEXT,
+    label TEXT,
+    created_at TEXT NOT NULL
+  );
+`;
+
 function buildTestApp() {
   const db = new Database(':memory:');
   db.pragma('journal_mode = WAL');
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS nodes (
-      id TEXT PRIMARY KEY,
-      parent_id TEXT REFERENCES nodes(id),
-      title TEXT NOT NULL,
-      notes TEXT NOT NULL DEFAULT '',
-      x REAL NOT NULL DEFAULT 0,
-      y REAL NOT NULL DEFAULT 0,
-      collapsed INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS edges (
-      id TEXT PRIMARY KEY,
-      source_id TEXT,
-      target_id TEXT,
-      label TEXT,
-      created_at TEXT NOT NULL
-    );
-  `);
-
-  const app = express();
-  app.use(express.json());
-  app.use('/nodes', makeNodesRouter(db));
-  return { app, db };
+  db.exec(SCHEMA);
+  return { app: createApp(db), db };
 }
 
 describe('PATCH /nodes/:id', () => {
