@@ -185,18 +185,20 @@ describe('App — add child node behavior', () => {
     });
   });
 
-  it('parent node gains container dimensions on first child creation', async () => {
+  it('parent node gains container dimensions (320x240) on first child creation', async () => {
     /**
      * Verifies that a parent with no DB dimensions (width: null, height: null)
-     * receives style.width === 200 and style.minHeight === 140 after its first
+     * receives style.width === 320px and style.height === 240px after its first
      * child is created.
      *
      * Why: React Flow requires parent nodes used as subflow containers (via
-     * extent: 'parent') to have explicit dimensions. Without them, child nodes
-     * collapse to zero size or clip outside the parent.
+     * extent: 'parent') to have explicit dimensions. The default 320×240 gives
+     * the child adequate room to move and be repositioned without immediately
+     * clipping against the parent edge — the old 200×140 was too small.
      *
-     * What breaks: Children of newly-promoted parent nodes render incorrectly
-     * or not at all, because React Flow cannot compute the parent bounding box.
+     * What breaks: Children of newly-promoted parent nodes clip against the
+     * parent border immediately, and the node resizer cannot expand the parent
+     * because minHeight isn't respected by the NodeResizer component correctly.
      */
     // GIVEN a root node with no DB dimensions
     vi.spyOn(api, 'fetchNodes').mockResolvedValue([rootNode]);
@@ -209,13 +211,15 @@ describe('App — add child node behavior', () => {
     });
     fireEvent.click(container.querySelector('[data-testid="add-child-btn"]')!);
 
-    // THEN the parent node wrapper has width: 200px and minHeight: 140px applied
+    // THEN the parent node wrapper has width: 320px and height: 240px (not minHeight)
     await waitFor(() => {
       const parentEl = container.querySelector('[data-id="root"]') as HTMLElement | null;
       expect(parentEl).not.toBeNull();
       // React Flow applies node style to the node wrapper element
-      expect(parentEl!.style.width).toBe('200px');
-      expect(parentEl!.style.minHeight).toBe('140px');
+      expect(parentEl!.style.width).toBe('320px');
+      expect(parentEl!.style.height).toBe('240px');
+      // Must not use minHeight — NodeResizer doesn't interact well with minHeight
+      expect(parentEl!.style.minHeight).toBe('');
     });
   });
 

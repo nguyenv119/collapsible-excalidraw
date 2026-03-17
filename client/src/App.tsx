@@ -64,7 +64,8 @@ function dbNodeToFlowNode(
   childMap: Map<string, string[]>,
   hiddenIds: Set<string>,
   onToggleCollapse: (id: string) => void,
-  onAddChild: (id: string) => void
+  onAddChild: (id: string) => void,
+  onNodeResized: (id: string, width: number, height: number) => void
 ): CanvasNodeType {
   const hasChildren = childMap.has(n.id);
   // Parent nodes with children need explicit dimensions for React Flow subflows
@@ -74,7 +75,7 @@ function dbNodeToFlowNode(
     ? { width: n.width, height: n.height }
     : null;
   const styleFromChildren = hasChildren && !styleFromDb
-    ? { width: 200, minHeight: 140 }
+    ? { width: 320, height: 240 }
     : null;
   const style = styleFromDb ?? styleFromChildren ?? undefined;
 
@@ -89,6 +90,7 @@ function dbNodeToFlowNode(
       collapsed: n.collapsed === 1,
       onToggleCollapse,
       onAddChild,
+      onNodeResized,
     },
     ...(n.parent_id
       ? { parentId: n.parent_id, extent: 'parent' as const }
@@ -198,6 +200,18 @@ export default function App() {
     createNode({ title: 'New Node', parent_id: parentId, x: 50, y: 60 })
       .then((dbNode) => handleNodeCreatedRef.current(dbNode))
       .catch((err) => console.error('Failed to create child node:', err));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Node resize state sync ────────────────────────────────────────────────
+  // Called by CanvasNode's handleResizeEnd to keep React Flow node style in
+  // sync with the post-resize dimensions. Stable (empty deps) because it only
+  // writes to state via a functional updater — no closure deps needed.
+  const handleNodeResized = useCallback((id: string, width: number, height: number) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id ? { ...n, style: { ...n.style, width, height } } : n
+      )
+    );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── React Flow controlled-mode handlers ──────────────────────────────────
@@ -340,11 +354,11 @@ export default function App() {
               // style set yet — don't override user-resized dimensions.
               const needsDimensions =
                 !alreadyHasChildren &&
-                (n.style?.width == null && n.style?.minHeight == null);
+                (n.style?.width == null && n.style?.height == null);
               return {
                 ...n,
                 data: { ...n.data, hasChildren: true },
-                ...(needsDimensions ? { style: { ...n.style, width: 200, minHeight: 140 } } : {}),
+                ...(needsDimensions ? { style: { ...n.style, width: 320, height: 240 } } : {}),
               };
             })
           : nds;
@@ -363,12 +377,13 @@ export default function App() {
           newChildMap,
           hiddenIds,
           onToggleCollapse,
-          handleAddChild
+          handleAddChild,
+          handleNodeResized
         );
         return [...updated, newNode];
       });
     },
-    [onToggleCollapse, handleAddChild]
+    [onToggleCollapse, handleAddChild, handleNodeResized]
   );
 
   // Keep handleNodeCreatedRef in sync so handleAddChild can call it stably
@@ -408,7 +423,7 @@ export default function App() {
 
         setNodes(
           dbNodes.map((n) =>
-            dbNodeToFlowNode(n, initialChildMap, hiddenIds, onToggleCollapse, handleAddChild)
+            dbNodeToFlowNode(n, initialChildMap, hiddenIds, onToggleCollapse, handleAddChild, handleNodeResized)
           )
         );
 
