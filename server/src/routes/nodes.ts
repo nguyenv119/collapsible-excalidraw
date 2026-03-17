@@ -6,7 +6,7 @@ const router = Router();
 
 // GET /nodes — return all nodes
 router.get('/', (_req: Request, res: Response) => {
-  const nodes = db.prepare('SELECT * FROM nodes').all();
+  const nodes = db.prepare('SELECT * FROM nodes ORDER BY parent_id NULLS FIRST, id').all();
   res.json(nodes);
 });
 
