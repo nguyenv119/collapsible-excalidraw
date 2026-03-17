@@ -338,10 +338,9 @@ export default function App() {
               const alreadyHasChildren = n.data.hasChildren;
               // Only apply default dimensions if the parent has no explicit
               // style set yet — don't override user-resized dimensions.
-              const s = n.style as { width?: unknown; minHeight?: unknown } | undefined;
               const needsDimensions =
                 !alreadyHasChildren &&
-                (!s || (s.width == null && s.minHeight == null));
+                (n.style?.width == null && n.style?.minHeight == null);
               return {
                 ...n,
                 data: { ...n.data, hasChildren: true },
@@ -350,10 +349,19 @@ export default function App() {
             })
           : nds;
 
+        // If the parent is currently collapsed, the new child must start hidden.
+        const parentNode = dbNode.parent_id
+          ? nds.find((n) => n.id === dbNode.parent_id)
+          : undefined;
+        const hiddenIds =
+          parentNode?.data.collapsed === true
+            ? new Set([dbNode.id])
+            : new Set<string>();
+
         const newNode = dbNodeToFlowNode(
           dbNode,
           newChildMap,
-          new Set(),
+          hiddenIds,
           onToggleCollapse,
           handleAddChild
         );
