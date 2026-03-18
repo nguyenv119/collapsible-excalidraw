@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { CanvasNodeType } from './CanvasNode';
 import { STROKE_COLORS, STROKE_WIDTHS, STROKE_STYLES } from '../styleConstants';
 
@@ -22,6 +23,12 @@ const FONT_COLORS = [
   { id: 'gray', label: 'Gray', color: '#6b7280' },
 ];
 
+const FONT_SIZES = [
+  { id: 'small', label: 'S', title: 'Small (11px)' },
+  { id: 'medium', label: 'M', title: 'Medium (13.5px)' },
+  { id: 'large', label: 'L', title: 'Large (18px)' },
+];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface NodeDetailPanelProps {
@@ -34,6 +41,7 @@ interface NodeDetailPanelProps {
     border_width?: string | null;
     border_style?: string | null;
     font_color?: string | null;
+    font_size?: string | null;
   }) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -49,6 +57,7 @@ export function NodeDetailPanel({
 }: NodeDetailPanelProps) {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nodeIdRef = useRef<string | null>(null);
 
@@ -75,6 +84,7 @@ export function NodeDetailPanel({
     } else {
       nodeIdRef.current = null;
     }
+    setIsEditing(false); // reset to preview mode on node change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node?.id]);
 
@@ -140,6 +150,13 @@ export function NodeDetailPanel({
     onUpdate(node.id, { border_style: next });
   };
 
+  const handleFontSize = (size: string) => {
+    if (!node) return;
+    // Toggle off if clicking the active value
+    const next = node.data.fontSize === size ? null : size;
+    onUpdate(node.id, { font_size: next });
+  };
+
   if (!node) return null;
 
   const activeStroke = node.data.borderColor;
@@ -147,6 +164,7 @@ export function NodeDetailPanel({
   const activeFontColor = node.data.fontColor;
   const activeWidth = node.data.borderWidth;
   const activeStyle = node.data.borderStyle;
+  const activeFontSize = node.data.fontSize;
 
   return (
     <div className="kc-panel">
@@ -176,17 +194,31 @@ export function NodeDetailPanel({
         </div>
 
         <div className="kc-panel__field">
-          <label className="kc-panel__label" htmlFor="kc-panel-notes">
-            Notes
-          </label>
-          <textarea
-            id="kc-panel-notes"
-            className="kc-panel__textarea"
-            value={notes}
-            onChange={handleNotesChange}
-            rows={8}
-            placeholder="Write notes here..."
-          />
+          <div className="kc-panel__field-header">
+            <label className="kc-panel__label" htmlFor="kc-panel-notes">
+              Notes
+            </label>
+            <button
+              className="kc-panel__mode-toggle"
+              onClick={() => setIsEditing((v) => !v)}
+            >
+              {isEditing ? 'Preview' : 'Edit'}
+            </button>
+          </div>
+          {isEditing ? (
+            <textarea
+              id="kc-panel-notes"
+              className="kc-panel__textarea"
+              value={notes}
+              onChange={handleNotesChange}
+              rows={8}
+              placeholder="Write notes here..."
+            />
+          ) : (
+            <div className="kc-md" onClick={() => setIsEditing(true)}>
+              <ReactMarkdown>{notes || '*no notes*'}</ReactMarkdown>
+            </div>
+          )}
         </div>
 
         {/* ── Style section ── */}
@@ -259,6 +291,23 @@ export function NodeDetailPanel({
                   }
                 >
                   A
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="kc-style-row">
+            <span className="kc-style-row__label">Size</span>
+            <div className="kc-style-toggles" data-testid="font-size-toggles">
+              {FONT_SIZES.map((f) => (
+                <button
+                  key={f.id}
+                  data-testid={`font-size-${f.id}`}
+                  className={`kc-style-toggle${activeFontSize === f.id ? ' kc-style-toggle--active' : ''}`}
+                  title={f.title}
+                  onClick={() => handleFontSize(f.id)}
+                >
+                  {f.label}
                 </button>
               ))}
             </div>

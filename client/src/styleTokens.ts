@@ -30,3 +30,10 @@ export function strokeStyleToDasharray(token: string | null): string | undefined
   if (token === 'dotted') return '2,3';
   return undefined;
 }
+
+/** Map semantic font-size tokens to CSS pixel values for node titles. */
+export function fontSizeToCss(token: string | null): string {
+  if (token === 'small') return '11px';
+  if (token === 'large') return '18px';
+  return '13.5px'; // default: 'medium' or null
+}

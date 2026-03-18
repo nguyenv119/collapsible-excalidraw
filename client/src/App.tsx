@@ -105,6 +105,9 @@ function applyEdgeStylePatch(
 // reference on every render, triggering infinite re-renders.
 const nodeTypes = { canvasNode: CanvasNode };
 
+// Height of a collapsed parent node — just the header bar, children hidden.
+const COLLAPSED_HEIGHT = 52;
+
 // ─── Converters ──────────────────────────────────────────────────────────────
 
 /**
@@ -147,7 +150,12 @@ export function dbNodeToFlowNodeBase(
   const styleFromChildren = hasChildren && !styleFromDb
     ? { width: 320, height: 240 }
     : null;
-  const style = styleFromDb ?? styleFromChildren ?? undefined;
+  const expandedStyle = styleFromDb ?? styleFromChildren ?? undefined;
+  // Collapsed parent nodes show a compact title bar on initial load
+  const isCollapsedParent = hasChildren && n.collapsed === 1;
+  const style = (isCollapsedParent && expandedStyle)
+    ? { ...expandedStyle, height: COLLAPSED_HEIGHT }
+    : expandedStyle;
 
   return {
     id: n.id,
@@ -164,6 +172,7 @@ export function dbNodeToFlowNodeBase(
       borderWidth: n.border_width,
       borderStyle: n.border_style,
       fontColor: n.font_color,
+      fontSize: n.font_size,
     },
     ...(n.parent_id
       ? { parentId: n.parent_id, extent: 'parent' as const }
@@ -241,6 +250,12 @@ export default function App() {
       })()
     : null;
 
+  // ─── Expanded style store for collapse/expand ─────────────────────────────
+  // Stores the expanded { width, height } of parent nodes so we can restore
+  // them after expanding. Populated at load time for already-collapsed nodes
+  // and updated whenever a parent is resized.
+  const expandedStylesRef = useRef<Map<string, { width: number; height: number }>>(new Map());
+
   // ─── childMap derived from current nodes ──────────────────────────────────
   // Derived purely from node topology (id + parentId). We keep it in a ref
   // so the collapse callback can always read the latest value without being
@@ -274,7 +289,22 @@ export default function App() {
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id === id) {
-          return { ...n, data: { ...n.data, collapsed: newCollapsed } };
+          // Compact/restore height for parent nodes on collapse/expand
+          let newStyle = n.style;
+          if (node.data.hasChildren) {
+            if (newCollapsed) {
+              const expandedW = (n.style?.width as number | undefined) ?? 320;
+              const expandedH = (n.style?.height as number | undefined) ?? 240;
+              expandedStylesRef.current.set(id, { width: expandedW, height: expandedH });
+              newStyle = { ...n.style, height: COLLAPSED_HEIGHT };
+            } else {
+              const saved = expandedStylesRef.current.get(id);
+              if (saved) {
+                newStyle = { ...n.style, width: saved.width, height: saved.height };
+              }
+            }
+          }
+          return { ...n, data: { ...n.data, collapsed: newCollapsed }, style: newStyle };
         }
         if (descendantSet.has(n.id)) {
           return { ...n, hidden: newCollapsed };
@@ -318,6 +348,8 @@ export default function App() {
   // sync with the post-resize dimensions. Stable (empty deps) because it only
   // writes to state via a functional updater — no closure deps needed.
   const handleNodeResized = useCallback((id: string, width: number, height: number) => {
+    // Keep expandedStylesRef current so a future collapse restores resized dimensions
+    expandedStylesRef.current.set(id, { width, height });
     setNodes((nds) =>
       nds.map((n) =>
         n.id === id ? { ...n, style: { ...n.style, width, height } } : n
@@ -539,6 +571,7 @@ export default function App() {
       border_width?: string | null;
       border_style?: string | null;
       font_color?: string | null;
+      font_size?: string | null;
     }) => {
       // Build a camelCase patch for the React state optimistic update
       const statePatch: Partial<CanvasNodeType['data']> = {};
@@ -549,6 +582,7 @@ export default function App() {
       if ('border_width' in patch) statePatch.borderWidth = patch.border_width ?? null;
       if ('border_style' in patch) statePatch.borderStyle = patch.border_style ?? null;
       if ('font_color' in patch) statePatch.fontColor = patch.font_color ?? null;
+      if ('font_size' in patch) statePatch.fontSize = patch.font_size ?? null;
 
       setNodes((nds) =>
         nds.map((n) =>
@@ -599,6 +633,17 @@ export default function App() {
             dbNodeToFlowNode(n, initialChildMap, hiddenIds, onToggleCollapse, handleAddChild, handleNodeResized)
           )
         );
+
+        // Populate expandedStylesRef for already-collapsed parent nodes so
+        // expand can restore the correct dimensions.
+        for (const n of dbNodes) {
+          if (n.collapsed === 1 && initialChildMap.has(n.id)) {
+            expandedStylesRef.current.set(n.id, {
+              width: n.width ?? 320,
+              height: n.height ?? 240,
+            });
+          }
+        }
 
         // Convert DB edges to React Flow edges with style data embedded
         setEdges(dbEdges.map((e) => dbEdgeToFlowEdge(e, hiddenIds)));

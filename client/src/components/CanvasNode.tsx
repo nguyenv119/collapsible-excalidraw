@@ -3,7 +3,7 @@ import type { CSSProperties, MouseEvent } from 'react';
 import { Handle, Position, NodeResizer, useConnection } from '@xyflow/react';
 import type { Node, NodeProps, ResizeDragEvent } from '@xyflow/react';
 import { patchNode } from '../api';
-import { borderWidthToCss } from '../styleTokens';
+import { borderWidthToCss, fontSizeToCss } from '../styleTokens';
 
 // ─── Node type definition ────────────────────────────────────────────────────
 // Exported so App.tsx can use it as the Node generic for the state array.
@@ -22,6 +22,7 @@ export type CanvasNodeType = Node<
     borderWidth: string | null;  // 'thin' | 'medium' | 'thick' | null
     borderStyle: string | null;  // 'solid' | 'dashed' | 'dotted' | null
     fontColor: string | null;
+    fontSize: string | null;     // 'small' | 'medium' | 'large' | null
   },
   'canvasNode'
 >;
@@ -32,7 +33,6 @@ export type CanvasNodeType = Node<
 export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
   const {
     title,
-    notes,
     hasChildren,
     collapsed,
     onToggleCollapse,
@@ -43,6 +43,7 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
     borderWidth,
     borderStyle,
     fontColor,
+    fontSize,
   } = data;
   const connection = useConnection();
 
@@ -54,9 +55,12 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
     ...(borderStyle ? { borderStyle } : {}),
   };
 
-  // fontColor must be applied directly to title/notes — CSS class colors on
-  // those elements override a color set on a parent div.
-  const fontStyle: CSSProperties | undefined = fontColor ? { color: fontColor } : undefined;
+  // fontColor and fontSize applied directly to title — CSS class colors override
+  // a color set on a parent div.
+  const titleStyle: CSSProperties = {
+    ...(fontColor ? { color: fontColor } : {}),
+    fontSize: fontSizeToCss(fontSize),
+  };
 
   const handleResizeEnd = useCallback(
     (_event: ResizeDragEvent, params: { x: number; y: number; width: number; height: number }) => {
@@ -89,10 +93,11 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
       className={`kc-node${selected ? ' selected' : ''}${connection.inProgress ? ' show-handles' : ''}`}
       style={nodeStyle}
     >
+      {/* Hide resizer on collapsed nodes — can't resize a compact title bar */}
       <NodeResizer
         minWidth={150}
         minHeight={60}
-        isVisible={!!selected}
+        isVisible={!!selected && !collapsed}
         color="var(--accent)"
         handleStyle={{ width: 12, height: 12, borderRadius: 3 }}
         onResizeEnd={handleResizeEnd}
@@ -107,7 +112,7 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
 
       <div className="kc-node__inner">
         <div className="kc-node__header">
-          <p className="kc-node__title" style={fontStyle}>{title}</p>
+          <p className="kc-node__title" style={titleStyle}>{title}</p>
           <div className="kc-node__header-actions">
             <button
               data-testid="add-child-btn"
@@ -129,11 +134,6 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
             )}
           </div>
         </div>
-        {notes ? (
-          <p className="kc-node__notes" style={fontStyle}>{notes}</p>
-        ) : (
-          <p className="kc-node__notes kc-node__notes--empty">no notes</p>
-        )}
       </div>
 
       {/* Bottom — source + target */}
