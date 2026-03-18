@@ -108,7 +108,22 @@ const nodeTypes = { canvasNode: CanvasNode };
 // ─── Converters ──────────────────────────────────────────────────────────────
 
 /**
- * Convert a DB node to a React Flow node.
+ * The structural (DB-derived) subset of CanvasNodeType data — everything
+ * except the infrastructure callbacks (onToggleCollapse, onAddChild,
+ * onNodeResized) that App wires up separately.
+ */
+type StructuralNodeData = Omit<
+  CanvasNodeType['data'],
+  'onToggleCollapse' | 'onAddChild' | 'onNodeResized'
+>;
+
+/**
+ * Pure structural converter: maps a DB node row to a React Flow node shape
+ * containing only DB-derived fields.
+ *
+ * Callbacks (onToggleCollapse, onAddChild, onNodeResized) are intentionally
+ * excluded — they are infrastructure wiring, not part of DB-to-node
+ * conversion. Callers spread them into data after calling this function.
  *
  * `hiddenIds` is the set of node IDs that should be hidden because an ancestor
  * is collapsed. Passed in at load time so the initial render respects persisted
@@ -116,17 +131,12 @@ const nodeTypes = { canvasNode: CanvasNode };
  *
  * `childMap` is used to determine hasChildren and to set initial style
  * dimensions on parent nodes (required by React Flow for subflows).
- *
- * `onToggleCollapse` and `onAddChild` are stable callback references from App.
  */
-function dbNodeToFlowNode(
+export function dbNodeToFlowNodeBase(
   n: CanvasNodeData,
   childMap: Map<string, string[]>,
-  hiddenIds: Set<string>,
-  onToggleCollapse: (id: string) => void,
-  onAddChild: (id: string) => void,
-  onNodeResized: (id: string, width: number, height: number) => void
-): CanvasNodeType {
+  hiddenIds: Set<string>
+): Omit<CanvasNodeType, 'data'> & { data: StructuralNodeData } {
   const hasChildren = childMap.has(n.id);
   // Parent nodes with children need explicit dimensions for React Flow subflows
   // (extent: 'parent' requires a known parent size). We fall back to explicit
@@ -148,9 +158,6 @@ function dbNodeToFlowNode(
       notes: n.notes,
       hasChildren,
       collapsed: n.collapsed === 1,
-      onToggleCollapse,
-      onAddChild,
-      onNodeResized,
       // Visual style tokens — passed to CanvasNode for inline CSS application
       borderColor: n.border_color,
       bgColor: n.bg_color,
@@ -163,6 +170,29 @@ function dbNodeToFlowNode(
       : {}),
     ...(style ? { style } : {}),
     hidden: hiddenIds.has(n.id),
+  };
+}
+
+/**
+ * Convenience wrapper: converts a DB node to a full React Flow CanvasNodeType
+ * by calling dbNodeToFlowNodeBase and spreading in the App-level callbacks.
+ *
+ * The callbacks are kept separate from the structural converter so that
+ * dbNodeToFlowNodeBase can be unit-tested without App wiring, and so that
+ * adding new callbacks in the future does not require modifying the converter.
+ */
+function dbNodeToFlowNode(
+  n: CanvasNodeData,
+  childMap: Map<string, string[]>,
+  hiddenIds: Set<string>,
+  onToggleCollapse: (id: string) => void,
+  onAddChild: (id: string) => void,
+  onNodeResized: (id: string, width: number, height: number) => void
+): CanvasNodeType {
+  const base = dbNodeToFlowNodeBase(n, childMap, hiddenIds);
+  return {
+    ...base,
+    data: { ...base.data, onToggleCollapse, onAddChild, onNodeResized },
   };
 }
 
