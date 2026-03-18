@@ -37,3 +37,10 @@ export function fontSizeToCss(token: string | null): string {
   if (token === 'large') return '18px';
   return '13.5px'; // default: 'medium' or null
 }
+
+/** Map font-size tokens to numeric pixel values for zoom-scale calculations. */
+export function fontSizeToPx(token: string | null): number {
+  if (token === 'small') return 11;
+  if (token === 'large') return 18;
+  return 13.5; // default: 'medium' or null
+}

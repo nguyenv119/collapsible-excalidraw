@@ -3,7 +3,10 @@ import type { CSSProperties, MouseEvent } from 'react';
 import { Handle, Position, NodeResizer, useConnection, useViewport } from '@xyflow/react';
 import type { Node, NodeProps, ResizeDragEvent } from '@xyflow/react';
 import { patchNode } from '../api';
-import { borderWidthToCss, fontSizeToCss } from '../styleTokens';
+import { borderWidthToCss, fontSizeToCss, fontSizeToPx } from '../styleTokens';
+
+// Minimum legible screen-space pixels for counter-scaled map labels.
+const TARGET_PX = 13;
 
 // ─── Node type definition ────────────────────────────────────────────────────
 // Exported so App.tsx can use it as the Node generic for the state array.
@@ -58,10 +61,7 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
 
   // Counter-scale the title on collapsed parent nodes so it remains legible at
   // any zoom level — like city labels on a map.
-  // Numeric px values matching fontSizeToCss tokens (avoids parsing CSS strings).
-  const FONT_SIZE_PX: Record<string, number> = { small: 11, medium: 13.5, large: 18 };
-  const TARGET_PX = 13; // minimum legible screen-space pixels
-  const currentFontPx = FONT_SIZE_PX[fontSize ?? 'medium'] ?? 13.5;
+  const currentFontPx = fontSizeToPx(fontSize);
   const mapLabelScale =
     collapsed && hasChildren
       ? Math.max(1, Math.min(6, TARGET_PX / (currentFontPx * zoom)))
