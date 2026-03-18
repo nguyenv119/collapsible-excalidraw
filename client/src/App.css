@@ -701,7 +701,7 @@ body,
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 
 .kc-style-row:last-child {
@@ -724,7 +724,7 @@ body,
 
 .kc-style-swatches {
   display: flex;
-  gap: 5px;
+  gap: 7px;
   flex-wrap: wrap;
 }
 
@@ -745,14 +745,14 @@ body,
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
 }
 
-/* Active: 2px white ring with 2px gap for strong contrast on dark backgrounds */
+/* Active: tight 1px gap + 2px ring — no scale so the ring stays within its lane */
 .kc-swatch--active {
-  box-shadow: 0 0 0 2px var(--canvas-bg), 0 0 0 4px rgba(255, 255, 255, 0.75);
-  transform: scale(1.1);
+  box-shadow: 0 0 0 1.5px var(--canvas-bg), 0 0 0 3px rgba(255, 255, 255, 0.72);
 }
 
 .kc-swatch--active:hover {
-  box-shadow: 0 0 0 2px var(--canvas-bg), 0 0 0 4px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1.5px var(--canvas-bg), 0 0 0 3px rgba(255, 255, 255, 0.9);
+  transform: scale(1.08);
 }
 
 /* "None" stroke swatch — diagonal strikethrough line */
