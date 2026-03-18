@@ -21,6 +21,7 @@ import type {
   OnEdgesDelete,
   NodeMouseHandler,
   EdgeMouseHandler,
+  Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './App.css';
@@ -30,6 +31,8 @@ import type { CanvasNodeType } from './components/CanvasNode';
 import { Toolbar } from './components/Toolbar';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { EdgeDetailPanel } from './components/EdgeDetailPanel';
+import { ViewportController } from './components/ViewportController';
+import type { ViewportCommand } from './components/ViewportController';
 import {
   fetchNodes,
   fetchEdges,
@@ -235,6 +238,11 @@ export default function App() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [mode, setMode] = useState<'pan' | 'select'>('pan');
 
+  // ─── Viewport command + stack for zoom-fit navigation ─────────────────────
+  const [viewportCommand, setViewportCommand] = useState<ViewportCommand | null>(null);
+  const viewportStackRef = useRef<Viewport[]>([]);
+  const getViewportRef = useRef<(() => Viewport) | null>(null);
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
   // Derive edge style from edges state (single source of truth) — no separate edgeStyleMap
   const selectedEdgeStyle = selectedEdgeId
@@ -326,6 +334,20 @@ export default function App() {
     patchNode(id, { collapsed: newCollapsed ? 1 : 0 }).catch((err) =>
       console.error('Failed to persist collapsed state:', err)
     );
+
+    // Viewport navigation: zoom-fit on expand, restore on collapse
+    if (newCollapsed) {
+      // Collapse: pop the saved viewport and animate back
+      const saved = viewportStackRef.current.pop();
+      if (saved) {
+        setViewportCommand({ type: 'restoreViewport', viewport: saved });
+      }
+    } else {
+      // Expand: snapshot current viewport, then fit the node's children area
+      const currentVp = getViewportRef.current?.();
+      if (currentVp) viewportStackRef.current.push(currentVp);
+      setViewportCommand({ type: 'fitNode', nodeId: id });
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Add child node ────────────────────────────────────────────────────────
@@ -398,6 +420,17 @@ export default function App() {
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
+  }, []);
+
+  // ─── Viewport persistence via localStorage ─────────────────────────────────
+  // Debounced 600ms so rapid pan/zoom gestures only trigger one write.
+  const viewportSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMoveEnd = useCallback((_: unknown, viewport: Viewport) => {
+    if (viewportSaveTimer.current) clearTimeout(viewportSaveTimer.current);
+    viewportSaveTimer.current = setTimeout(() => {
+      localStorage.setItem('kc-viewport', JSON.stringify(viewport));
+    }, 600);
   }, []);
 
   // ─── Mode keyboard shortcuts (V = select, H = pan) ────────────────────────
@@ -705,18 +738,24 @@ export default function App() {
         onNodesDelete={handleNodesDelete}
         onEdgesDelete={handleEdgesDelete}
         onSelectionChange={handleSelectionChange}
+        onMoveEnd={handleMoveEnd}
         panOnDrag={mode === 'pan'}
         selectionOnDrag={mode === 'select'}
         selectionMode={SelectionMode.Partial}
         multiSelectionKeyCode={['Meta', 'Control']}
         maxZoom={8}
-        fitView
+        fitView={!localStorage.getItem('kc-viewport')}
         fitViewOptions={{ padding: 0.2 }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={0.75}/>
         <Controls />
         <MiniMap nodeColor="#d07a5a" maskColor="rgba(43,45,42,0.75)" />
         <Toolbar onNodeCreated={handleNodeCreated} mode={mode} onToggleMode={setMode} />
+        <ViewportController
+          command={viewportCommand}
+          onCommandHandled={() => setViewportCommand(null)}
+          getViewportRef={getViewportRef}
+        />
       </ReactFlow>
       <NodeDetailPanel
         node={selectedNode}
