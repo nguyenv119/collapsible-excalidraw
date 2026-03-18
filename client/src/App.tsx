@@ -42,19 +42,9 @@ import {
 } from './api';
 import type { CanvasNodeData, CanvasEdge as CanvasEdgeData } from './api';
 import { buildChildMap, getDescendants } from './collapse';
+import { strokeWidthToCss, strokeStyleToDasharray } from './styleTokens';
 
 // ─── Edge style helpers ──────────────────────────────────────────────────────
-
-const STROKE_WIDTH_MAP: Record<string, number> = {
-  thin: 1,
-  medium: 2,
-  thick: 4,
-};
-
-const STROKE_DASH_MAP: Record<string, string> = {
-  dashed: '5 5',
-  dotted: '2 2',
-};
 
 /**
  * Build a React Flow Edge from a DB edge row.
@@ -63,8 +53,8 @@ const STROKE_DASH_MAP: Record<string, string> = {
  */
 function dbEdgeToFlowEdge(e: CanvasEdgeData, hiddenIds: Set<string>): Edge {
   const strokeColor = e.stroke_color ?? undefined;
-  const strokeWidth = e.stroke_width ? (STROKE_WIDTH_MAP[e.stroke_width] ?? undefined) : undefined;
-  const strokeDasharray = e.stroke_style ? (STROKE_DASH_MAP[e.stroke_style] ?? undefined) : undefined;
+  const strokeWidth = strokeWidthToCss(e.stroke_width);
+  const strokeDasharray = strokeStyleToDasharray(e.stroke_style);
   return {
     id: e.id,
     source: e.source_id,
@@ -97,8 +87,8 @@ function applyEdgeStylePatch(
   const prevData = (edge.data ?? {}) as { stroke_color?: string | null; stroke_width?: string | null; stroke_style?: string | null };
   const nextData = { ...prevData, ...patch };
   const strokeColor = nextData.stroke_color ?? undefined;
-  const strokeWidth = nextData.stroke_width ? (STROKE_WIDTH_MAP[nextData.stroke_width] ?? undefined) : undefined;
-  const strokeDasharray = nextData.stroke_style ? (STROKE_DASH_MAP[nextData.stroke_style] ?? undefined) : undefined;
+  const strokeWidth = strokeWidthToCss(nextData.stroke_width ?? null);
+  const strokeDasharray = strokeStyleToDasharray(nextData.stroke_style ?? null);
   return {
     ...edge,
     data: nextData,
@@ -114,23 +104,6 @@ function applyEdgeStylePatch(
 // CRITICAL: If defined inline inside App(), React Flow receives a new object
 // reference on every render, triggering infinite re-renders.
 const nodeTypes = { canvasNode: CanvasNode };
-
-// ─── Style token helpers ─────────────────────────────────────────────────────
-
-/** Map semantic stroke-width tokens to CSS stroke-width values. */
-function strokeWidthToCss(token: string | null): string | undefined {
-  if (token === 'thin') return '1';
-  if (token === 'medium') return '2';
-  if (token === 'thick') return '3';
-  return undefined;
-}
-
-/** Map border/stroke style tokens to SVG strokeDasharray values. */
-function strokeStyleToDasharray(token: string | null): string | undefined {
-  if (token === 'dashed') return '5,5';
-  if (token === 'dotted') return '2,3';
-  return undefined;
-}
 
 // ─── Converters ──────────────────────────────────────────────────────────────
 

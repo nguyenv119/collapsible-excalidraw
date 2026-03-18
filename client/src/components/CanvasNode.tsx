@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent } from 'react';
 import { Handle, Position, NodeResizer, useConnection } from '@xyflow/react';
 import type { Node, NodeProps, ResizeDragEvent } from '@xyflow/react';
 import { patchNode } from '../api';
+import { borderWidthToCss } from '../styleTokens';
 
 // ─── Node type definition ────────────────────────────────────────────────────
 // Exported so App.tsx can use it as the Node generic for the state array.
@@ -28,14 +29,6 @@ export type CanvasNodeType = Node<
 // ─── Component ───────────────────────────────────────────────────────────────
 // NOTE: nodeTypes must be defined OUTSIDE the component in App.tsx —
 // inline definition causes infinite re-renders.
-/** Map semantic border-width tokens to CSS pixel values. */
-function borderWidthToCss(token: string | null): string | undefined {
-  if (token === 'thin') return '1px';
-  if (token === 'medium') return '2px';
-  if (token === 'thick') return '3px';
-  return undefined;
-}
-
 export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
   const {
     title,
