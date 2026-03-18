@@ -1,16 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CanvasNodeType } from './CanvasNode';
+import { STROKE_COLORS, STROKE_WIDTHS, STROKE_STYLES } from '../styleConstants';
 
 // ─── Style constants ──────────────────────────────────────────────────────────
-
-const STROKE_COLORS = [
-  { id: 'default', label: 'Default', color: null, display: 'transparent', border: 'rgba(255,255,255,0.15)' },
-  { id: 'dark', label: 'Dark', color: '#1a1a1a', display: '#1a1a1a', border: null },
-  { id: 'red', label: 'Red', color: '#ef4444', display: '#ef4444', border: null },
-  { id: 'green', label: 'Green', color: '#22c55e', display: '#22c55e', border: null },
-  { id: 'blue', label: 'Blue', color: '#3b82f6', display: '#3b82f6', border: null },
-  { id: 'orange', label: 'Orange', color: '#f97316', display: '#f97316', border: null },
-];
 
 const BG_COLORS = [
   { id: 'default', label: 'Transparent', color: 'transparent', display: 'transparent', border: 'rgba(255,255,255,0.15)' },
@@ -28,18 +20,6 @@ const FONT_COLORS = [
   { id: 'red', label: 'Red', color: '#ef4444' },
   { id: 'blue', label: 'Blue', color: '#3b82f6' },
   { id: 'gray', label: 'Gray', color: '#6b7280' },
-];
-
-const BORDER_WIDTHS = [
-  { id: 'thin', label: '—', title: 'Thin' },
-  { id: 'medium', label: '–', title: 'Medium' },
-  { id: 'thick', label: '━', title: 'Thick' },
-];
-
-const BORDER_STYLES = [
-  { id: 'solid', label: '—', title: 'Solid' },
-  { id: 'dashed', label: '╌', title: 'Dashed' },
-  { id: 'dotted', label: '···', title: 'Dotted' },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -287,7 +267,7 @@ export function NodeDetailPanel({
           <div className="kc-style-row">
             <span className="kc-style-row__label">Width</span>
             <div className="kc-style-toggles" data-testid="border-width-toggles">
-              {BORDER_WIDTHS.map((w) => (
+              {STROKE_WIDTHS.map((w) => (
                 <button
                   key={w.id}
                   data-testid={`border-width-${w.id}`}
@@ -304,7 +284,7 @@ export function NodeDetailPanel({
           <div className="kc-style-row">
             <span className="kc-style-row__label">Line</span>
             <div className="kc-style-toggles" data-testid="border-style-toggles">
-              {BORDER_STYLES.map((s) => (
+              {STROKE_STYLES.map((s) => (
                 <button
                   key={s.id}
                   data-testid={`border-style-${s.id}`}
