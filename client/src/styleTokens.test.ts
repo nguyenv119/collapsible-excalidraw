@@ -4,6 +4,7 @@ import {
   strokeWidthToCss,
   strokeStyleToDasharray,
   fontSizeToCss,
+  fontSizeToPx,
 } from './styleTokens';
 
 // ─── borderWidthToCss ─────────────────────────────────────────────────────────
@@ -324,5 +325,108 @@ describe('fontSizeToCss', () => {
     const result = fontSizeToCss('large');
     // THEN it returns the large CSS pixel value
     expect(result).toBe('18px');
+  });
+});
+
+// ─── fontSizeToPx ─────────────────────────────────────────────────────────────
+
+describe('fontSizeToPx', () => {
+  it('small_token_returns_11', () => {
+    /**
+     * Verifies that the 'small' token maps to the numeric pixel value 11.
+     *
+     * Why: The map-label counter-scaling in CanvasNode needs a numeric pixel
+     * value (not a CSS string) to compute the zoom scale factor. Parsing
+     * '11px' at render time on every frame would waste CPU; this function
+     * provides the canonical numeric value directly.
+     *
+     * What breaks: If the wrong number is returned, the counter-scale
+     * calculation uses the wrong base font size, causing collapsed parent
+     * labels to appear too large or too small at various zoom levels.
+     */
+    // GIVEN the 'small' font-size token
+    // WHEN translated to a numeric pixel value
+    const result = fontSizeToPx('small');
+    // THEN it returns 11
+    expect(result).toBe(11);
+  });
+
+  it('large_token_returns_18', () => {
+    /**
+     * Verifies that the 'large' token maps to the numeric pixel value 18.
+     *
+     * Why: Same contract as the 'small' case — numeric values are required
+     * for arithmetic in the zoom-scale calculation. 18 must agree with the
+     * value used in fontSizeToCss so the two functions stay in sync.
+     *
+     * What breaks: A mismatch between fontSizeToPx and fontSizeToCss for the
+     * 'large' token means the counter-scale arithmetic uses a different base
+     * than the actual rendered size, making the scaled label noticeably wrong.
+     */
+    // GIVEN the 'large' font-size token
+    // WHEN translated to a numeric pixel value
+    const result = fontSizeToPx('large');
+    // THEN it returns 18
+    expect(result).toBe(18);
+  });
+
+  it('medium_token_returns_13_5', () => {
+    /**
+     * Verifies that the 'medium' token maps to the numeric pixel value 13.5.
+     *
+     * Why: 13.5 is the default/medium size shared with fontSizeToCss. Both
+     * functions must agree on this value so that counter-scaling uses the
+     * correct base size for the most common font-size setting.
+     *
+     * What breaks: Nodes with font_size='medium' have a subtly incorrect
+     * counter-scale, making their label appear slightly too big or too small
+     * when the parent is collapsed.
+     */
+    // GIVEN the 'medium' font-size token
+    // WHEN translated to a numeric pixel value
+    const result = fontSizeToPx('medium');
+    // THEN it returns 13.5
+    expect(result).toBe(13.5);
+  });
+
+  it('null_token_returns_default_13_5', () => {
+    /**
+     * Verifies that a null token (no font_size stored in DB) returns the
+     * default numeric pixel value 13.5.
+     *
+     * Why: Nodes without a font_size fall back to the medium default. The
+     * counter-scale calculation passes the stored token directly; if no
+     * token is stored the function must still return a safe, correct default.
+     *
+     * What breaks: If null returns 0 or NaN, the division in the scale
+     * calculation (TARGET_PX / (currentFontPx * zoom)) produces Infinity
+     * or NaN, causing the counter-scale transform to be invalid and the
+     * node label to disappear or render at the wrong size.
+     */
+    // GIVEN no font_size stored in DB (null token)
+    // WHEN translated to a numeric pixel value
+    const result = fontSizeToPx(null);
+    // THEN it returns the medium default
+    expect(result).toBe(13.5);
+  });
+
+  it('unknown_token_returns_default_13_5', () => {
+    /**
+     * Verifies that an unrecognized token falls back to 13.5, not throwing
+     * or returning an unexpected value.
+     *
+     * Why: DB schema may contain legacy or future tokens not yet handled.
+     * The function must degrade gracefully to the medium default rather than
+     * crashing the render.
+     *
+     * What breaks: A single node with an unrecognized font_size token causes
+     * the counter-scale arithmetic to produce Infinity/NaN, breaking the
+     * label rendering for that node.
+     */
+    // GIVEN an unrecognized font-size token
+    // WHEN translated to a numeric pixel value
+    const result = fontSizeToPx('extra-large');
+    // THEN it falls back to the medium default
+    expect(result).toBe(13.5);
   });
 });

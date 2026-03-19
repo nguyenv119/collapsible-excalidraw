@@ -135,6 +135,15 @@ body,
   border-color: var(--accent);
 }
 
+/* ─── Collapsed parent node — allow counter-scaled title to overflow ──────── */
+/* The mapLabelScale transform in CanvasNode enlarges the title in canvas      */
+/* units so it remains legible at low zoom. Without overflow:visible the        */
+/* scaled-up title is clipped by the default overflow:hidden of the 52px bar.  */
+
+.kc-node--collapsed {
+  overflow: visible;
+}
+
 /* ─── Transparent node — anchored to dark canvas ──────────────────────────── */
 /* When a node has explicit transparent fill it needs visual anchoring:        */
 /* white border + light text so it remains legible on the dark canvas.        */
