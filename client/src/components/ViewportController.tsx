@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { MutableRefObject } from 'react';         // ← from 'react', NOT '@xyflow/react'
 import { useReactFlow } from '@xyflow/react';
-import type { Viewport } from '@xyflow/react';
+import type { Viewport, XYPosition } from '@xyflow/react';
 
 export type ViewportCommand =                          // ← exported for App.tsx import
   | { type: 'fitNode'; nodeId: string }
@@ -11,17 +11,26 @@ interface ViewportControllerProps {
   command: ViewportCommand | null;
   onCommandHandled: () => void;
   getViewportRef: MutableRefObject<(() => Viewport) | null>;
+  /** Ref through which App.tsx reads screenToFlowPosition for paste placement. */
+  screenToFlowPositionRef: MutableRefObject<((pos: XYPosition) => XYPosition) | null>;
 }
 
 export const VIEWPORT_KEY = 'kc-viewport';
 
-export function ViewportController({ command, onCommandHandled, getViewportRef }: ViewportControllerProps) {
-  const { fitBounds, setViewport, getViewport, getInternalNode } = useReactFlow();
+export function ViewportController({ command, onCommandHandled, getViewportRef, screenToFlowPositionRef }: ViewportControllerProps) {
+  const { fitBounds, setViewport, getViewport, getInternalNode, screenToFlowPosition } = useReactFlow();
 
   // Expose getViewport to App so onToggleCollapse can snapshot before dispatching
   useEffect(() => {
     getViewportRef.current = getViewport;
   }, [getViewport, getViewportRef]);
+
+  // Expose screenToFlowPosition for paste placement (Cmd+V).
+  // Called at paste time (not during render), so keeping the ref current via
+  // useEffect is sufficient — no stale-closure issues.
+  useEffect(() => {
+    screenToFlowPositionRef.current = screenToFlowPosition;
+  }, [screenToFlowPosition, screenToFlowPositionRef]);
 
   // Restore saved viewport on mount
   useEffect(() => {
