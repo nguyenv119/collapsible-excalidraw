@@ -483,8 +483,8 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'v' || e.key === 'V') setMode('select');
-      if (e.key === 'h' || e.key === 'H') setMode('pan');
+      if ((e.key === 'v' || e.key === 'V') && !e.metaKey && !e.ctrlKey) setMode('select');
+      if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey) setMode('pan');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

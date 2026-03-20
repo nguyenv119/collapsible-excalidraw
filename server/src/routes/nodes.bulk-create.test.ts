@@ -3,7 +3,7 @@ import request from 'supertest';
 import Database from 'better-sqlite3';
 import { createApp } from '../server';
 
-// Full schema matching production (same as nodes.bulk.test.ts)
+// Full schema matching production
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS nodes (
     id TEXT PRIMARY KEY,
