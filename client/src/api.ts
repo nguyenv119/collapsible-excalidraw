@@ -33,6 +33,19 @@ export interface CanvasEdge {
   created_at: string;
 }
 
+/**
+ * Patch shape for bulk style updates.
+ * Mirrors the node-style fields that StyleControls can change.
+ */
+export type StylePatch = {
+  border_color?: string | null;
+  bg_color?: string | null;
+  border_width?: string | null;
+  border_style?: string | null;
+  font_color?: string | null;
+  font_size?: string | null;
+};
+
 // ─── Fetch ──────────────────────────────────────────────────────────────────
 
 export async function fetchNodes(): Promise<CanvasNodeData[]> {

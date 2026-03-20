@@ -871,6 +871,7 @@ body,
 /* ─── WIDTH toggle visual weight ────────────────────────────────────────── */
 /* Thin: lighter weight + smaller size so it reads as a fine line */
 [data-testid="border-width-thin"],
+[data-testid="multi-border-width-thin"],
 [data-testid="edge-stroke-width-thin"] {
   font-size: 10px;
   font-weight: 300;
@@ -880,6 +881,7 @@ body,
 
 /* Medium: default weight, keep as-is */
 [data-testid="border-width-medium"],
+[data-testid="multi-border-width-medium"],
 [data-testid="edge-stroke-width-medium"] {
   font-size: 14px;
   font-weight: 500;
@@ -887,6 +889,7 @@ body,
 
 /* Thick: bold and large so it reads as a heavy stroke */
 [data-testid="border-width-thick"],
+[data-testid="multi-border-width-thick"],
 [data-testid="edge-stroke-width-thick"] {
   font-size: 17px;
   font-weight: 700;
@@ -898,11 +901,40 @@ body,
 [data-testid="border-style-solid"],
 [data-testid="border-style-dashed"],
 [data-testid="border-style-dotted"],
+[data-testid="multi-border-style-solid"],
+[data-testid="multi-border-style-dashed"],
+[data-testid="multi-border-style-dotted"],
 [data-testid="edge-stroke-style-solid"],
 [data-testid="edge-stroke-style-dashed"],
 [data-testid="edge-stroke-style-dotted"] {
   font-size: 15px;
   letter-spacing: 0.04em;
+}
+
+/* ─── Multi-select Panel ────────────────────────────────────────────────── */
+
+/*
+ * Multi-select panel reuses the .kc-panel shell for visual consistency
+ * (same dark bg, same left accent stripe, same animation) but the header
+ * communicates "scope of action" rather than per-node identity.
+ *
+ * The count badge (.kc-multi-header__count) reads as a magnitude indicator —
+ * the number tells the user how many nodes will be affected before they click.
+ */
+
+.kc-multi-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.kc-multi-header__count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 /* ─── Markdown Preview (NodeDetailPanel notes) ──────────────────────────── */

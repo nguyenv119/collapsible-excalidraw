@@ -31,6 +31,8 @@ import type { CanvasNodeType } from './components/CanvasNode';
 import { Toolbar } from './components/Toolbar';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { EdgeDetailPanel } from './components/EdgeDetailPanel';
+import { MultiSelectPanel } from './components/MultiSelectPanel';
+import type { StylePatch } from './api';
 import { ViewportController, VIEWPORT_KEY } from './components/ViewportController';
 import type { ViewportCommand } from './components/ViewportController';
 import {
@@ -250,6 +252,10 @@ export default function App() {
   const initialFitViewRef = useRef(!localStorage.getItem(VIEWPORT_KEY));
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
+  // Nodes for the multi-select panel — only meaningful when >1 are selected
+  const selectedNodes = selectedNodeIds.length > 1
+    ? nodes.filter((n) => selectedNodeIds.includes(n.id))
+    : [];
   // Derive edge style from edges state (single source of truth) — no separate edgeStyleMap
   const selectedEdgeStyle = selectedEdgeId
     ? (() => {
@@ -672,6 +678,7 @@ export default function App() {
 
   const handlePanelClose = useCallback(() => setSelectedNodeId(null), []);
   const handleEdgePanelClose = useCallback(() => setSelectedEdgeId(null), []);
+  const handleMultiSelectClose = useCallback(() => setSelectedNodeIds([]), []);
 
   // ─── Edge style update (from EdgeDetailPanel) ─────────────────────────────
   const handleEdgeStyleUpdate = useCallback(
@@ -686,6 +693,39 @@ export default function App() {
       );
     },
     []
+  );
+
+  // ─── Bulk style update (multi-select panel) ───────────────────────────────
+  // Applies a style patch to all currently selected nodes: optimistic state
+  // update first, then one atomic bulkPatchNodes call for persistence.
+  const handleBulkStyleUpdate = useCallback(
+    (patch: StylePatch) => {
+      const ids = selectedNodeIdsRef.current;
+      if (ids.length === 0) return;
+
+      // Build a camelCase state patch for the optimistic update
+      const statePatch: Partial<CanvasNodeType['data']> = {};
+      if ('border_color' in patch) statePatch.borderColor = patch.border_color ?? null;
+      if ('bg_color' in patch) statePatch.bgColor = patch.bg_color ?? null;
+      if ('border_width' in patch) statePatch.borderWidth = patch.border_width ?? null;
+      if ('border_style' in patch) statePatch.borderStyle = patch.border_style ?? null;
+      if ('font_color' in patch) statePatch.fontColor = patch.font_color ?? null;
+      if ('font_size' in patch) statePatch.fontSize = patch.font_size ?? null;
+
+      const idSet = new Set(ids);
+      setNodes((nds) =>
+        nds.map((n) =>
+          idSet.has(n.id) ? { ...n, data: { ...n.data, ...statePatch } } : n
+        )
+      );
+
+      // Persist atomically via bulk endpoint
+      const patches = ids.map((id) => ({ id, ...patch }));
+      bulkPatchNodes(patches).catch((err) =>
+        console.error('Failed to persist bulk style update:', err)
+      );
+    },
+    [] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // ─── Initial data load ────────────────────────────────────────────────────
@@ -809,6 +849,13 @@ export default function App() {
         onUpdate={handleEdgeStyleUpdate}
         onClose={handleEdgePanelClose}
       />
+      {selectedNodeIds.length > 1 && (
+        <MultiSelectPanel
+          selectedNodes={selectedNodes}
+          onBulkStyleUpdate={handleBulkStyleUpdate}
+          onClose={handleMultiSelectClose}
+        />
+      )}
       {/* Test-only: expose edge IDs for programmatic selection in JSDOM tests,
           where React Flow SVG edges are not rendered. Hidden from users. */}
       {(import.meta as unknown as { env: { MODE: string } }).env.MODE === 'test' && (
@@ -818,6 +865,34 @@ export default function App() {
               key={e.id}
               data-testid={`select-edge-${e.id}`}
               onClick={() => { setSelectedEdgeId(e.id); setSelectedNodeId(null); }}
+            />
+          ))}
+        </div>
+      )}
+      {/* Test-only: trigger multi-select for JSDOM tests.
+          React Flow's onSelectionChange cannot be driven by fireEvent in jsdom,
+          so we expose a hidden button that directly sets selectedNodeIds. */}
+      {(import.meta as unknown as { env: { MODE: string } }).env.MODE === 'test' && (
+        <div data-testid="multi-select-triggers" style={{ display: 'none' }}>
+          {nodes.map((n) => (
+            <button
+              key={n.id}
+              data-testid={`multi-select-node-${n.id}`}
+              onClick={() => {
+                setSelectedNodeIds((prev) => {
+                  const next = prev.includes(n.id)
+                    ? prev.filter((id) => id !== n.id)
+                    : [...prev, n.id];
+                  if (next.length === 1) {
+                    setSelectedNodeId(next[0]);
+                    setSelectedEdgeId(null);
+                  } else if (next.length > 1) {
+                    setSelectedNodeId(null);
+                    setSelectedEdgeId(null);
+                  }
+                  return next;
+                });
+              }}
             />
           ))}
         </div>
