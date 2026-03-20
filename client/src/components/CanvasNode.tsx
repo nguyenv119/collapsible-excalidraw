@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { CSSProperties, MouseEvent } from 'react';
 import { Handle, Position, NodeResizer, useConnection, useViewport } from '@xyflow/react';
-import type { Node, NodeProps, ResizeDragEvent } from '@xyflow/react';
+import type { Node, NodeProps, ResizeDragEvent, ResizeParams } from '@xyflow/react';
 import { patchNode } from '../api';
 import { borderWidthToCss, fontSizeToCss, fontSizeToPx } from '../styleTokens';
 
@@ -19,6 +19,7 @@ export type CanvasNodeType = Node<
     onToggleCollapse: (id: string) => void;
     onAddChild: (id: string) => void;
     onNodeResized: (id: string, width: number, height: number) => void;
+    onProportionalResize?: (id: string, scaleX: number, scaleY: number) => void;
     // Visual style tokens from DB
     borderColor: string | null;
     bgColor: string | null;
@@ -41,6 +42,7 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
     onToggleCollapse,
     onAddChild,
     onNodeResized,
+    onProportionalResize,
     borderColor,
     bgColor,
     borderWidth,
@@ -50,6 +52,10 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
   } = data;
   const connection = useConnection();
   const { zoom } = useViewport();
+
+  // Capture starting dimensions at the beginning of a resize gesture so we can
+  // compute the scale factor once the gesture finishes (onResizeEnd).
+  const startDimsRef = useRef<{ width: number; height: number } | null>(null);
 
   const borderWidthCss = borderWidthToCss(borderWidth);
   const nodeStyle: CSSProperties = {
@@ -81,14 +87,29 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
       : {}),
   };
 
+  const handleResizeStart = useCallback(
+    (_event: ResizeDragEvent, params: ResizeParams) => {
+      startDimsRef.current = { width: params.width, height: params.height };
+    },
+    []
+  );
+
   const handleResizeEnd = useCallback(
     (_event: ResizeDragEvent, params: { x: number; y: number; width: number; height: number }) => {
       patchNode(id, { width: params.width, height: params.height, x: params.x, y: params.y }).catch(
         (err) => console.error('Failed to persist node resize:', err)
       );
       onNodeResized(id, params.width, params.height);
+
+      // Compute scale factor and notify App for proportional multi-select resize
+      if (onProportionalResize && startDimsRef.current) {
+        const scaleX = params.width / startDimsRef.current.width;
+        const scaleY = params.height / startDimsRef.current.height;
+        onProportionalResize(id, scaleX, scaleY);
+      }
+      startDimsRef.current = null;
     },
-    [id, onNodeResized]
+    [id, onNodeResized, onProportionalResize]
   );
 
   const handleCollapseClick = useCallback(
@@ -119,6 +140,7 @@ export function CanvasNode({ id, data, selected }: NodeProps<CanvasNodeType>) {
         isVisible={!!selected && !collapsed}
         color="var(--accent)"
         handleStyle={{ width: 12, height: 12, borderRadius: 3 }}
+        onResizeStart={handleResizeStart}
         onResizeEnd={handleResizeEnd}
       />
       {/* Top — source + target */}

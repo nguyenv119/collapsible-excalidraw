@@ -123,16 +123,16 @@ const COLLAPSED_HEIGHT = 52;
  */
 type StructuralNodeData = Omit<
   CanvasNodeType['data'],
-  'onToggleCollapse' | 'onAddChild' | 'onNodeResized'
+  'onToggleCollapse' | 'onAddChild' | 'onNodeResized' | 'onProportionalResize'
 >;
 
 /**
  * Pure structural converter: maps a DB node row to a React Flow node shape
  * containing only DB-derived fields.
  *
- * Callbacks (onToggleCollapse, onAddChild, onNodeResized) are intentionally
- * excluded — they are infrastructure wiring, not part of DB-to-node
- * conversion. Callers spread them into data after calling this function.
+ * Callbacks (onToggleCollapse, onAddChild, onNodeResized, onProportionalResize)
+ * are intentionally excluded — they are infrastructure wiring, not part of
+ * DB-to-node conversion. Callers spread them into data after calling this function.
  *
  * `hiddenIds` is the set of node IDs that should be hidden because an ancestor
  * is collapsed. Passed in at load time so the initial render respects persisted
@@ -202,12 +202,13 @@ function dbNodeToFlowNode(
   hiddenIds: Set<string>,
   onToggleCollapse: (id: string) => void,
   onAddChild: (id: string) => void,
-  onNodeResized: (id: string, width: number, height: number) => void
+  onNodeResized: (id: string, width: number, height: number) => void,
+  onProportionalResize?: (id: string, scaleX: number, scaleY: number) => void
 ): CanvasNodeType {
   const base = dbNodeToFlowNodeBase(n, childMap, hiddenIds);
   return {
     ...base,
-    data: { ...base.data, onToggleCollapse, onAddChild, onNodeResized },
+    data: { ...base.data, onToggleCollapse, onAddChild, onNodeResized, onProportionalResize },
   };
 }
 
@@ -393,6 +394,79 @@ export default function App() {
       )
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Proportional multi-select resize ─────────────────────────────────────
+  // Called by CanvasNode when the user finishes resizing a node that is part of
+  // a multi-selection. Applies the same scale factor (scaleX, scaleY) to all
+  // OTHER selected nodes, respecting minimum dimensions and skipping nodes
+  // without explicit style dimensions (auto-sized leaf nodes).
+  //
+  // Collapsed parent nodes: their visible style.height is COLLAPSED_HEIGHT (52px),
+  // not their real content height. We scale the expandedStylesRef entry and
+  // persist the real expanded dimensions so expand restores the correct size.
+  const handleProportionalResize = useCallback(
+    (sourceId: string, scaleX: number, scaleY: number) => {
+      const allSelectedIds = selectedNodeIdsRef.current;
+      // Only act when multiple nodes are selected (this node + at least one other)
+      if (allSelectedIds.length <= 1) return;
+
+      const MIN_WIDTH = 150;
+      const MIN_HEIGHT = 60;
+
+      const patches: Array<{ id: string; width: number; height: number }> = [];
+
+      setNodes((nds) =>
+        nds.map((n) => {
+          // Skip the node being resized — it already updated itself via handleNodeResized
+          if (n.id === sourceId) return n;
+          // Skip nodes not in the selection
+          if (!allSelectedIds.includes(n.id)) return n;
+
+          // Determine the reference dimensions to scale.
+          // For collapsed nodes, use expandedStylesRef (the real content size).
+          // For normal nodes, use style.width / style.height.
+          let refWidth: number | undefined;
+          let refHeight: number | undefined;
+
+          const isCollapsed = n.data.collapsed;
+          if (isCollapsed) {
+            const saved = expandedStylesRef.current.get(n.id);
+            if (!saved) return n; // no stored dims — skip
+            refWidth = saved.width;
+            refHeight = saved.height;
+          } else {
+            const sw = n.style?.width;
+            const sh = n.style?.height;
+            if (sw == null || sh == null) return n; // auto-sized — skip
+            refWidth = sw as number;
+            refHeight = sh as number;
+          }
+
+          const newWidth = Math.max(MIN_WIDTH, Math.round(refWidth * scaleX));
+          const newHeight = Math.max(MIN_HEIGHT, Math.round(refHeight * scaleY));
+
+          // Update expandedStylesRef so collapse/expand restores the new size
+          expandedStylesRef.current.set(n.id, { width: newWidth, height: newHeight });
+
+          patches.push({ id: n.id, width: newWidth, height: newHeight });
+
+          if (isCollapsed) {
+            // Keep the collapsed visual style (header bar only); only the stored
+            // expanded dims changed. The node will expand to newWidth × newHeight.
+            return n;
+          }
+          return { ...n, style: { ...n.style, width: newWidth, height: newHeight } };
+        })
+      );
+
+      if (patches.length > 0) {
+        bulkPatchNodes(patches).catch((err) =>
+          console.error('Failed to persist proportional resize:', err)
+        );
+      }
+    },
+    [] // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // ─── React Flow controlled-mode handlers ──────────────────────────────────
   const onNodesChange: OnNodesChange<CanvasNodeType> = useCallback(
@@ -627,12 +701,13 @@ export default function App() {
           hiddenIds,
           onToggleCollapse,
           handleAddChild,
-          handleNodeResized
+          handleNodeResized,
+          handleProportionalResize
         );
         return [...updated, newNode];
       });
     },
-    [onToggleCollapse, handleAddChild, handleNodeResized]
+    [onToggleCollapse, handleAddChild, handleNodeResized, handleProportionalResize]
   );
 
   // Keep handleNodeCreatedRef in sync so handleAddChild can call it stably
@@ -743,7 +818,7 @@ export default function App() {
 
         setNodes(
           dbNodes.map((n) =>
-            dbNodeToFlowNode(n, initialChildMap, hiddenIds, onToggleCollapse, handleAddChild, handleNodeResized)
+            dbNodeToFlowNode(n, initialChildMap, hiddenIds, onToggleCollapse, handleAddChild, handleNodeResized, handleProportionalResize)
           )
         );
 
@@ -892,6 +967,26 @@ export default function App() {
                   }
                   return next;
                 });
+              }}
+            />
+          ))}
+        </div>
+      )}
+      {/* Test-only: trigger proportional resize for JSDOM tests.
+          NodeResizer drag events cannot be simulated in jsdom, so we expose
+          a hidden button per node that calls handleProportionalResize directly
+          with scaleX/scaleY read from data attributes set by the test. */}
+      {(import.meta as unknown as { env: { MODE: string } }).env.MODE === 'test' && (
+        <div data-testid="proportional-resize-triggers" style={{ display: 'none' }}>
+          {nodes.map((n) => (
+            <button
+              key={n.id}
+              data-testid={`proportional-resize-trigger-${n.id}`}
+              onClick={(e) => {
+                const btn = e.currentTarget;
+                const scaleX = parseFloat(btn.dataset.scaleX ?? '1');
+                const scaleY = parseFloat(btn.dataset.scaleY ?? '1');
+                handleProportionalResize(n.id, scaleX, scaleY);
               }}
             />
           ))}
