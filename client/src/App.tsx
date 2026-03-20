@@ -22,6 +22,7 @@ import type {
   NodeMouseHandler,
   EdgeMouseHandler,
   Viewport,
+  XYPosition,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './App.css';
@@ -45,10 +46,13 @@ import {
   createEdge,
   patchEdge,
   deleteEdge,
+  bulkCreateNodes,
+  bulkCreateEdges,
 } from './api';
 import type { CanvasNodeData, CanvasEdge as CanvasEdgeData } from './api';
 import { buildChildMap, getDescendants } from './collapse';
 import { strokeWidthToCss, strokeStyleToDasharray } from './styleTokens';
+import type { ClipboardData } from './clipboard';
 
 // ─── Edge style helpers ──────────────────────────────────────────────────────
 
@@ -291,8 +295,19 @@ export default function App() {
   const nodesRef = useRef<CanvasNodeType[]>(nodes);
   nodesRef.current = nodes;
 
+  // ─── Edges ref (for reading current state in keyboard handlers) ───────────
+  const edgesRef = useRef<Edge[]>(edges);
+  edgesRef.current = edges;
+
   // ─── selectedNodeIds ref — consumed by KC-4.2+ (bulk style, resize, paste) ─
   selectedNodeIdsRef.current = selectedNodeIds;
+
+  // ─── Clipboard ref (in-memory, not persisted) ─────────────────────────────
+  const clipboardRef = useRef<ClipboardData | null>(null);
+
+  // ─── screenToFlowPosition ref — populated by ViewportController ───────────
+  // Used by the Cmd+V paste handler to convert viewport center to canvas coords.
+  const screenToFlowPositionRef = useRef<((pos: XYPosition) => XYPosition) | null>(null);
 
   // ─── Collapse / expand ────────────────────────────────────────────────────
   // CRITICAL: stable ref via useCallback([]) + nodesRef/childMapRef to avoid
@@ -468,11 +483,185 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'v' || e.key === 'V') setMode('select');
-      if (e.key === 'h' || e.key === 'H') setMode('pan');
+      if ((e.key === 'v' || e.key === 'V') && !e.metaKey && !e.ctrlKey) setMode('select');
+      if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey) setMode('pan');
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ─── Copy / Paste keyboard handlers (Cmd+C / Cmd+V) ──────────────────────
+  // Reads from refs (nodesRef, edgesRef, selectedNodeIdsRef, screenToFlowPositionRef)
+  // to avoid stale closures and to avoid listing these as deps (which would
+  // force recreation and re-registration on every state change).
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Skip when user is typing in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // ─── Cmd+C: copy selected nodes + edges between them ─────────────────
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'C')) {
+        const ids = new Set(selectedNodeIdsRef.current);
+        if (ids.size === 0) return;
+
+        const currentNodes = nodesRef.current;
+        const currentEdges = edgesRef.current;
+
+        // Snapshot selected nodes with all DB-level fields
+        const copiedNodes = currentNodes
+          .filter((n) => ids.has(n.id))
+          .map((n) => ({
+            id: n.id,
+            parent_id: n.parentId ?? null,
+            title: n.data.title,
+            notes: n.data.notes,
+            x: n.position.x,
+            y: n.position.y,
+            width: (n.style?.width as number | null | undefined) ?? null,
+            height: (n.style?.height as number | null | undefined) ?? null,
+            collapsed: n.data.collapsed ? (1 as const) : (0 as const),
+            border_color: n.data.borderColor ?? null,
+            bg_color: n.data.bgColor ?? null,
+            border_width: n.data.borderWidth ?? null,
+            border_style: n.data.borderStyle ?? null,
+            font_size: n.data.fontSize ?? null,
+            font_color: n.data.fontColor ?? null,
+          }));
+
+        // Include only edges where both endpoints are in the selection
+        const copiedEdges = currentEdges
+          .filter((e) => ids.has(e.source) && ids.has(e.target))
+          .map((e) => {
+            const d = (e.data ?? {}) as {
+              stroke_color?: string | null;
+              stroke_width?: string | null;
+              stroke_style?: string | null;
+            };
+            return {
+              id: e.id,
+              source_id: e.source,
+              target_id: e.target,
+              source_handle: e.sourceHandle ?? null,
+              target_handle: e.targetHandle ?? null,
+              label: typeof e.label === 'string' ? e.label : null,
+              stroke_color: d.stroke_color ?? null,
+              stroke_width: d.stroke_width ?? null,
+              stroke_style: d.stroke_style ?? null,
+            };
+          });
+
+        clipboardRef.current = { nodes: copiedNodes, edges: copiedEdges };
+        return;
+      }
+
+      // ─── Cmd+V: paste clipboard at viewport center ───────────────────────
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'v' || e.key === 'V')) {
+        const clipboard = clipboardRef.current;
+        if (!clipboard || clipboard.nodes.length === 0) return;
+
+        // Convert viewport center (screen coords) to canvas coords
+        const screenToFlow = screenToFlowPositionRef.current;
+        const viewportCenterX = window.innerWidth / 2;
+        const viewportCenterY = window.innerHeight / 2;
+        const canvasCenter = screenToFlow
+          ? screenToFlow({ x: viewportCenterX, y: viewportCenterY })
+          : { x: viewportCenterX, y: viewportCenterY };
+
+        // Build old→new ID map using crypto.randomUUID (browser-native, no uuidv7)
+        const idMap = new Map<string, string>();
+        for (const n of clipboard.nodes) {
+          idMap.set(n.id, crypto.randomUUID());
+        }
+
+        // Identify root-level nodes in the pasted set: nodes whose parent_id is
+        // either null or points to a node NOT in the clipboard (i.e. not being pasted).
+        const clipboardNodeIds = new Set(clipboard.nodes.map((n) => n.id));
+        const rootNodes = clipboard.nodes.filter(
+          (n) => n.parent_id === null || !clipboardNodeIds.has(n.parent_id)
+        );
+
+        // Compute centroid of root-level nodes (positions relative to their
+        // canvas origin, already absolute for root nodes).
+        const centroidX = rootNodes.reduce((sum, n) => sum + n.x, 0) / (rootNodes.length || 1);
+        const centroidY = rootNodes.reduce((sum, n) => sum + n.y, 0) / (rootNodes.length || 1);
+        const offsetX = canvasCenter.x - centroidX;
+        const offsetY = canvasCenter.y - centroidY;
+
+        // Build new node payloads: remap IDs, apply centroid offset to root nodes only.
+        const newNodePayloads = clipboard.nodes.map((n) => {
+          const newId = idMap.get(n.id)!;
+          const newParentId = n.parent_id !== null ? (idMap.get(n.parent_id) ?? null) : null;
+          const isRoot = n.parent_id === null || !clipboardNodeIds.has(n.parent_id);
+          return {
+            id: newId,
+            parent_id: newParentId,
+            title: n.title,
+            notes: n.notes,
+            x: isRoot ? n.x + offsetX : n.x,
+            y: isRoot ? n.y + offsetY : n.y,
+            width: n.width,
+            height: n.height,
+            collapsed: n.collapsed,
+            border_color: n.border_color,
+            bg_color: n.bg_color,
+            border_width: n.border_width,
+            border_style: n.border_style,
+            font_size: n.font_size,
+            font_color: n.font_color,
+          };
+        });
+
+        // Build new edge payloads: remap source/target IDs
+        const newEdgePayloads = clipboard.edges.map((e) => ({
+          id: crypto.randomUUID(),
+          source_id: idMap.get(e.source_id) ?? e.source_id,
+          target_id: idMap.get(e.target_id) ?? e.target_id,
+          source_handle: e.source_handle,
+          target_handle: e.target_handle,
+          label: e.label,
+          stroke_color: e.stroke_color,
+          stroke_width: e.stroke_width,
+          stroke_style: e.stroke_style,
+        }));
+
+        try {
+          // Create nodes first (edges reference them)
+          const createdNodes = await bulkCreateNodes(newNodePayloads);
+          // Then create edges
+          const createdEdges = newEdgePayloads.length > 0
+            ? await bulkCreateEdges(newEdgePayloads)
+            : [];
+
+          // Add pasted nodes + edges to local React Flow state
+          const newChildMap = buildChildMap([
+            ...nodesRef.current.map((n) => ({ id: n.id, parent_id: n.parentId ?? null })),
+            ...createdNodes.map((n) => ({ id: n.id, parent_id: n.parent_id })),
+          ]);
+
+          setNodes((nds) => [
+            ...nds,
+            ...createdNodes.map((n) =>
+              dbNodeToFlowNode(n, newChildMap, new Set(), onToggleCollapse, handleAddChild, handleNodeResized)
+            ),
+          ]);
+
+          setEdges((eds) => [
+            ...eds,
+            ...createdEdges.map((e) => dbEdgeToFlowEdge(e, new Set())),
+          ]);
+        } catch (err) {
+          console.error('Failed to paste nodes/edges:', err);
+        }
+
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Stable refs used inside — no deps needed. onToggleCollapse, handleAddChild,
+    // handleNodeResized are stable useCallback([]) functions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Multi-select: track selectedNodeIds + close single-select panel ────────
@@ -835,6 +1024,7 @@ export default function App() {
           command={viewportCommand}
           onCommandHandled={() => setViewportCommand(null)}
           getViewportRef={getViewportRef}
+          screenToFlowPositionRef={screenToFlowPositionRef}
         />
       </ReactFlow>
       <NodeDetailPanel

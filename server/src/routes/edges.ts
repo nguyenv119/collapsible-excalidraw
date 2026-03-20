@@ -60,6 +60,81 @@ export function makeEdgesRouter(database: Database.Database): Router {
     res.status(201).json(edge);
   });
 
+  // POST /edges/bulk — atomically create multiple edges with client-supplied IDs
+  // IMPORTANT: this route MUST be registered before /:id to avoid "bulk" being
+  // matched as an edge ID.
+  router.post('/bulk', (req: Request, res: Response) => {
+    const { edges } = req.body as { edges?: Array<Record<string, unknown>> };
+
+    if (!Array.isArray(edges) || edges.length === 0) {
+      res.status(422).json({ error: 'edges must be a non-empty array' });
+      return;
+    }
+
+    // Validate all edges before inserting any
+    for (const edge of edges) {
+      if (typeof edge['id'] !== 'string' || (edge['id'] as string).trim() === '') {
+        res.status(422).json({ error: 'each edge must have a string id' });
+        return;
+      }
+      if (typeof edge['source_id'] !== 'string') {
+        res.status(422).json({ error: 'each edge must have a string source_id' });
+        return;
+      }
+      if (typeof edge['target_id'] !== 'string') {
+        res.status(422).json({ error: 'each edge must have a string target_id' });
+        return;
+      }
+
+      // Verify referenced nodes exist
+      const sourceExists = database.prepare('SELECT id FROM nodes WHERE id = ?').get(edge['source_id']);
+      if (!sourceExists) {
+        res.status(422).json({ error: `source node '${edge['source_id']}' does not exist` });
+        return;
+      }
+      const targetExists = database.prepare('SELECT id FROM nodes WHERE id = ?').get(edge['target_id']);
+      if (!targetExists) {
+        res.status(422).json({ error: `target node '${edge['target_id']}' does not exist` });
+        return;
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    const bulkInsert = database.transaction((edgeList: Array<Record<string, unknown>>) => {
+      for (const edge of edgeList) {
+        const id = edge['id'] as string;
+        const source_id = edge['source_id'] as string;
+        const target_id = edge['target_id'] as string;
+        const source_handle = (edge['source_handle'] as string | null | undefined) ?? null;
+        const target_handle = (edge['target_handle'] as string | null | undefined) ?? null;
+        const label = (edge['label'] as string | null | undefined) ?? null;
+        const stroke_color = (edge['stroke_color'] as string | null | undefined) ?? null;
+        const stroke_width = (edge['stroke_width'] as string | null | undefined) ?? null;
+        const stroke_style = (edge['stroke_style'] as string | null | undefined) ?? null;
+
+        database.prepare(`
+          INSERT INTO edges
+            (id, source_id, target_id, source_handle, target_handle, label,
+             stroke_color, stroke_width, stroke_style, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id, source_id, target_id, source_handle, target_handle, label,
+          stroke_color, stroke_width, stroke_style, now,
+        );
+      }
+    });
+
+    bulkInsert(edges);
+
+    const ids = edges.map((e) => e['id'] as string);
+    const placeholders = ids.map(() => '?').join(', ');
+    const created = database.prepare(
+      `SELECT * FROM edges WHERE id IN (${placeholders})`
+    ).all(...ids);
+    res.status(201).json(created);
+  });
+
   // PATCH /edges/:id — partially update an edge
   router.patch('/:id', (req: Request, res: Response) => {
     const { id } = req.params;

@@ -57,6 +57,73 @@ export function makeNodesRouter(database: Database.Database): Router {
     res.status(201).json(node);
   });
 
+  // POST /nodes/bulk — atomically create multiple nodes with client-supplied IDs
+  // IMPORTANT: this route MUST be registered before /:id so the literal string
+  // "bulk" is not matched as a node ID by the /:id handler.
+  router.post('/bulk', (req: Request, res: Response) => {
+    const { nodes } = req.body as { nodes?: Array<Record<string, unknown>> };
+
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      res.status(422).json({ error: 'nodes must be a non-empty array' });
+      return;
+    }
+
+    // Validate all nodes before inserting any
+    for (const node of nodes) {
+      if (typeof node['title'] !== 'string' || (node['title'] as string).trim() === '') {
+        res.status(422).json({ error: 'each node must have a non-empty title' });
+        return;
+      }
+      if (typeof node['id'] !== 'string' || (node['id'] as string).trim() === '') {
+        res.status(422).json({ error: 'each node must have a string id' });
+        return;
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    const bulkInsert = database.transaction((nodeList: Array<Record<string, unknown>>) => {
+      for (const node of nodeList) {
+        const id = node['id'] as string;
+        const title = (node['title'] as string).trim();
+        const parent_id = (node['parent_id'] as string | null | undefined) ?? null;
+        const notes = (node['notes'] as string | undefined) ?? '';
+        const x = (node['x'] as number | undefined) ?? 0;
+        const y = (node['y'] as number | undefined) ?? 0;
+        const collapsed = (node['collapsed'] as number | undefined) ?? 0;
+        const width = (node['width'] as number | null | undefined) ?? null;
+        const height = (node['height'] as number | null | undefined) ?? null;
+        const border_color = (node['border_color'] as string | null | undefined) ?? null;
+        const bg_color = (node['bg_color'] as string | null | undefined) ?? null;
+        const border_width = (node['border_width'] as string | null | undefined) ?? null;
+        const border_style = (node['border_style'] as string | null | undefined) ?? null;
+        const font_size = (node['font_size'] as string | null | undefined) ?? null;
+        const font_color = (node['font_color'] as string | null | undefined) ?? null;
+
+        database.prepare(`
+          INSERT INTO nodes
+            (id, parent_id, title, notes, x, y, collapsed, width, height,
+             border_color, bg_color, border_width, border_style, font_size, font_color,
+             created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id, parent_id, title, notes, x, y, collapsed, width, height,
+          border_color, bg_color, border_width, border_style, font_size, font_color,
+          now, now,
+        );
+      }
+    });
+
+    bulkInsert(nodes);
+
+    const ids = nodes.map((n) => n['id'] as string);
+    const placeholders = ids.map(() => '?').join(', ');
+    const created = database.prepare(
+      `SELECT * FROM nodes WHERE id IN (${placeholders}) ORDER BY parent_id NULLS FIRST`
+    ).all(...ids);
+    res.status(201).json(created);
+  });
+
   // PATCH /nodes/bulk — atomically update multiple nodes
   // IMPORTANT: this route MUST be registered before /:id so the literal string
   // "bulk" is not matched as a node ID by the /:id handler.

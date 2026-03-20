@@ -133,3 +133,27 @@ export async function bulkPatchNodes(
   if (!res.ok) throw new Error(`bulkPatchNodes failed: ${res.status}`);
   return res.json();
 }
+
+export async function bulkCreateNodes(
+  nodes: Array<Partial<CanvasNodeData> & { id: string; title: string }>
+): Promise<CanvasNodeData[]> {
+  const res = await fetch('/nodes/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nodes }),
+  });
+  if (!res.ok) throw new Error(`bulkCreateNodes failed: ${res.status}`);
+  return res.json();
+}
+
+export async function bulkCreateEdges(
+  edges: Array<Partial<CanvasEdge> & { id: string; source_id: string; target_id: string }>
+): Promise<CanvasEdge[]> {
+  const res = await fetch('/edges/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ edges }),
+  });
+  if (!res.ok) throw new Error(`bulkCreateEdges failed: ${res.status}`);
+  return res.json();
+}
