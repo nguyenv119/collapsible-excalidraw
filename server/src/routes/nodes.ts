@@ -9,6 +9,10 @@ import type Database from 'better-sqlite3';
 export function makeNodesRouter(database: Database.Database): Router {
   const router = Router();
 
+  const ALLOWED_NODE_FIELDS = ['title', 'notes', 'x', 'y', 'collapsed', 'parent_id', 'width', 'height',
+    'border_color', 'bg_color', 'border_width', 'border_style', 'font_size', 'font_color'] as const;
+  type AllowedField = (typeof ALLOWED_NODE_FIELDS)[number];
+
   // GET /nodes — return all nodes
   router.get('/', (_req: Request, res: Response) => {
     const nodes = database.prepare('SELECT * FROM nodes ORDER BY parent_id NULLS FIRST').all();
@@ -53,6 +57,59 @@ export function makeNodesRouter(database: Database.Database): Router {
     res.status(201).json(node);
   });
 
+  // PATCH /nodes/bulk — atomically update multiple nodes
+  // IMPORTANT: this route MUST be registered before /:id so the literal string
+  // "bulk" is not matched as a node ID by the /:id handler.
+  router.patch('/bulk', (req: Request, res: Response) => {
+    const { patches } = req.body as { patches?: Array<Record<string, unknown>> };
+
+    if (!Array.isArray(patches) || patches.length === 0) {
+      res.status(422).json({ error: 'patches must be a non-empty array' });
+      return;
+    }
+
+    // Validate that every patch references an existing node before mutating anything
+    for (const patch of patches) {
+      const id = patch['id'];
+      if (typeof id !== 'string') {
+        res.status(422).json({ error: 'each patch must have a string id' });
+        return;
+      }
+      const existing = database.prepare('SELECT id FROM nodes WHERE id = ?').get(id);
+      if (!existing) {
+        res.status(404).json({ error: `Node not found: ${id}` });
+        return;
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    const bulkUpdate = database.transaction((patchList: Array<Record<string, unknown>>) => {
+      for (const patch of patchList) {
+        const id = patch['id'] as string;
+        const updates: Partial<Record<AllowedField, unknown>> = {};
+        for (const field of ALLOWED_NODE_FIELDS) {
+          if (Object.prototype.hasOwnProperty.call(patch, field)) {
+            updates[field] = patch[field];
+          }
+        }
+        if (Object.keys(updates).length === 0) continue;
+
+        const setClauses = [...Object.keys(updates).map((k) => `${k} = ?`), 'updated_at = ?'].join(', ');
+        const values = [...Object.values(updates), now, id];
+        database.prepare(`UPDATE nodes SET ${setClauses} WHERE id = ?`).run(...values);
+      }
+    });
+
+    bulkUpdate(patches);
+
+    // Return all updated nodes
+    const ids = patches.map((p) => p['id'] as string);
+    const placeholders = ids.map(() => '?').join(', ');
+    const updatedNodes = database.prepare(`SELECT * FROM nodes WHERE id IN (${placeholders})`).all(...ids);
+    res.json(updatedNodes);
+  });
+
   // PATCH /nodes/:id — partially update a node
   router.patch('/:id', (req: Request, res: Response) => {
     const { id } = req.params;
@@ -63,12 +120,8 @@ export function makeNodesRouter(database: Database.Database): Router {
       return;
     }
 
-    const allowed = ['title', 'notes', 'x', 'y', 'collapsed', 'parent_id', 'width', 'height',
-      'border_color', 'bg_color', 'border_width', 'border_style', 'font_size', 'font_color'] as const;
-    type AllowedField = (typeof allowed)[number];
-
     const updates: Partial<Record<AllowedField, unknown>> = {};
-    for (const field of allowed) {
+    for (const field of ALLOWED_NODE_FIELDS) {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) {
         updates[field] = (req.body as Record<string, unknown>)[field];
       }

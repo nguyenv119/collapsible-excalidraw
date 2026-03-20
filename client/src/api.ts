@@ -108,3 +108,15 @@ export async function deleteEdge(id: string): Promise<void> {
   const res = await fetch(`/edges/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`deleteEdge failed: ${res.status}`);
 }
+
+export async function bulkPatchNodes(
+  patches: Array<{ id: string } & Partial<CanvasNodeData>>
+): Promise<CanvasNodeData[]> {
+  const res = await fetch('/nodes/bulk', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patches }),
+  });
+  if (!res.ok) throw new Error(`bulkPatchNodes failed: ${res.status}`);
+  return res.json();
+}

@@ -38,6 +38,7 @@ import {
   fetchEdges,
   createNode,
   patchNode,
+  bulkPatchNodes,
   deleteNode,
   createEdge,
   patchEdge,
@@ -236,6 +237,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const selectedNodeIdsRef = useRef<string[]>([]);
   const [mode, setMode] = useState<'pan' | 'select'>('pan');
 
   // ─── Viewport command + stack for zoom-fit navigation ─────────────────────
@@ -281,6 +284,9 @@ export default function App() {
   // ─── Nodes ref (for reading current state in stable callbacks) ───────────
   const nodesRef = useRef<CanvasNodeType[]>(nodes);
   nodesRef.current = nodes;
+
+  // ─── selectedNodeIds ref — consumed by KC-4.2+ (bulk style, resize, paste) ─
+  selectedNodeIdsRef.current = selectedNodeIds;
 
   // ─── Collapse / expand ────────────────────────────────────────────────────
   // CRITICAL: stable ref via useCallback([]) + nodesRef/childMapRef to avoid
@@ -394,11 +400,26 @@ export default function App() {
   );
 
   // ─── Drag persistence ───────────────────────────────────────────────────────
+  // The 3rd argument (draggedNodes) is all nodes that moved in this drag gesture
+  // (React Flow moves all selected nodes together). When >1 node was dragged,
+  // use the atomic bulk endpoint so all positions are saved in one transaction.
   const onNodeDragStop: OnNodeDrag<CanvasNodeType> = useCallback(
-    (_event, node) => {
-      patchNode(node.id, { x: node.position.x, y: node.position.y }).catch(
-        (err) => console.error('Failed to persist node position:', err)
-      );
+    (_event, _node, draggedNodes) => {
+      if (draggedNodes.length > 1) {
+        const patches = draggedNodes.map((n) => ({
+          id: n.id,
+          x: n.position.x,
+          y: n.position.y,
+        }));
+        bulkPatchNodes(patches).catch(
+          (err) => console.error('Failed to persist multi-node positions:', err)
+        );
+      } else {
+        const n = draggedNodes[0] ?? _node;
+        patchNode(n.id, { x: n.position.x, y: n.position.y }).catch(
+          (err) => console.error('Failed to persist node position:', err)
+        );
+      }
     },
     []
   );
@@ -423,6 +444,7 @@ export default function App() {
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
+    setSelectedNodeIds([]);
   }, []);
 
   // ─── Viewport persistence via localStorage ─────────────────────────────────
@@ -447,10 +469,25 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ─── Multi-select: close panel when >1 node selected ─────────────────────
+  // ─── Multi-select: track selectedNodeIds + close single-select panel ────────
+  // When 1 node is selected, also set selectedNodeId (shows NodeDetailPanel).
+  // When >1 are selected, clear both selectedNodeId and selectedEdgeId so the
+  // single-select panel closes (KC-4.2 will add a dedicated multi-select panel).
+  // When 0 are selected (e.g. pane click clears selection), clear everything.
   const handleSelectionChange = useCallback(
     ({ nodes: selectedNodes }: { nodes: CanvasNodeType[] }) => {
-      if (selectedNodes.length > 1) setSelectedNodeId(null);
+      const ids = selectedNodes.map((n) => n.id);
+      setSelectedNodeIds(ids);
+      if (ids.length === 1) {
+        setSelectedNodeId(ids[0]);
+      } else if (ids.length > 1) {
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+      } else {
+        // 0 selected (e.g. Escape key deselects all)
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+      }
     },
     []
   );
@@ -745,7 +782,7 @@ export default function App() {
         panOnDrag={mode === 'pan'}
         selectionOnDrag={mode === 'select'}
         selectionMode={SelectionMode.Partial}
-        multiSelectionKeyCode={['Meta', 'Control']}
+        multiSelectionKeyCode={['Shift', 'Meta', 'Control']}
         maxZoom={8}
         fitView={initialFitViewRef.current}
         fitViewOptions={{ padding: 0.2 }}
