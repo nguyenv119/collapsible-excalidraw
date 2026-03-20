@@ -1,4 +1,4 @@
-// Shared style constants used by NodeDetailPanel and MultiSelectPanel (via StyleControls).
+// Shared style constants used by NodeDetailPanel, MultiSelectPanel, and EdgeDetailPanel (via StyleControls).
 
 // ─── Node fill colors ─────────────────────────────────────────────────────────
 export const BG_COLORS = [
