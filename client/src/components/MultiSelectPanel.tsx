@@ -1,20 +1,6 @@
+import type { StylePatch } from '../api';
 import type { CanvasNodeType } from './CanvasNode';
 import { StyleControls } from './StyleControls';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-/**
- * Patch shape for bulk style updates.
- * Mirrors the node-style fields that StyleControls can change.
- */
-export type StylePatch = {
-  border_color?: string | null;
-  bg_color?: string | null;
-  border_width?: string | null;
-  border_style?: string | null;
-  font_color?: string | null;
-  font_size?: string | null;
-};
 
 interface MultiSelectPanelProps {
   /** All currently selected nodes — used to compute mixed-state detection. */
@@ -91,7 +77,7 @@ export function MultiSelectPanel({
   };
 
   return (
-    <div className="kc-panel kc-panel--multi" data-testid="multi-select-panel">
+    <div className="kc-panel" data-testid="multi-select-panel">
       <div className="kc-panel__header">
         <div className="kc-multi-header">
           <span className="kc-multi-header__count">{count}</span>

@@ -32,7 +32,7 @@ import { Toolbar } from './components/Toolbar';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { EdgeDetailPanel } from './components/EdgeDetailPanel';
 import { MultiSelectPanel } from './components/MultiSelectPanel';
-import type { StylePatch } from './components/MultiSelectPanel';
+import type { StylePatch } from './api';
 import { ViewportController, VIEWPORT_KEY } from './components/ViewportController';
 import type { ViewportCommand } from './components/ViewportController';
 import {
