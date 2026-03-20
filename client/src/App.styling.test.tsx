@@ -308,6 +308,82 @@ describe('App — styling panel: EdgeDetailPanel', () => {
     });
     expect(container.querySelector('[data-testid="edge-bg-swatches"]')).toBeNull();
   });
+
+  it('EdgeDetailPanel renders width and line-style toggles via StyleControls IDs', async () => {
+    /**
+     * Verifies that EdgeDetailPanel uses StyleControls to render stroke width
+     * and stroke style toggles, producing testIds "edge-border-width-toggles"
+     * and "edge-border-style-toggles".
+     *
+     * Why: This task migrates EdgeDetailPanel to use the shared <StyleControls>
+     * component. StyleControls uses the "border-width" and "border-style" naming
+     * for those rows (prefixed by testIdPrefix). After migration, the test IDs
+     * follow StyleControls' naming convention. If EdgeDetailPanel still renders
+     * its own inline JSX, it would use the old "stroke-width" / "stroke-style"
+     * names and this test would not find the expected elements.
+     *
+     * What breaks: If EdgeDetailPanel reverts to inline JSX, the width/style
+     * toggles appear under old IDs ("edge-stroke-width-toggles") rather than
+     * StyleControls IDs — any test or integration that queries the new IDs fails.
+     */
+    // GIVEN App has loaded with a node and an edge
+
+    // WHEN App mounts and the edge is selected
+    const { container } = render(<App />);
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow')).not.toBeNull();
+    });
+
+    const edgeTrigger = container.querySelector('[data-testid="select-edge-edge-style-1"]');
+    expect(edgeTrigger).not.toBeNull();
+    fireEvent.click(edgeTrigger!);
+
+    // THEN EdgeDetailPanel shows border-width and border-style toggles (StyleControls naming)
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="edge-border-width-toggles"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="edge-border-style-toggles"]')).not.toBeNull();
+    });
+    // AND the old inline IDs do not appear
+    expect(container.querySelector('[data-testid="edge-stroke-width-toggles"]')).toBeNull();
+    expect(container.querySelector('[data-testid="edge-stroke-style-toggles"]')).toBeNull();
+  });
+
+  it('EdgeDetailPanel renders no font-color or font-size controls when an edge is selected', async () => {
+    /**
+     * Verifies that EdgeDetailPanel omits the font-color swatches and font-size
+     * toggles that StyleControls would render for nodes. Edges have no
+     * text-color or font-size properties.
+     *
+     * Why: StyleControls is now shared between nodes and edges. Making fill/font
+     * props optional and conditionally rendering their rows prevents the edge
+     * panel from showing controls that have no meaning for an edge. If the
+     * omission logic is missing, the edge panel would show confusing and
+     * non-functional font style controls.
+     *
+     * What breaks: Users selecting an edge see "Font" color swatches and "Size"
+     * toggles in the EdgeDetailPanel. Clicking them does nothing and the
+     * appearance is inconsistent with edges being lines, not text containers.
+     */
+    // GIVEN App has loaded with a node and an edge
+
+    // WHEN App mounts and the edge is selected
+    const { container } = render(<App />);
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow')).not.toBeNull();
+    });
+
+    const edgeTrigger = container.querySelector('[data-testid="select-edge-edge-style-1"]');
+    expect(edgeTrigger).not.toBeNull();
+    fireEvent.click(edgeTrigger!);
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="edge-detail-panel"]')).not.toBeNull();
+    });
+
+    // THEN font-color swatches and font-size toggles are absent
+    expect(container.querySelector('[data-testid="edge-font-color-swatches"]')).toBeNull();
+    expect(container.querySelector('[data-testid="edge-font-size-toggles"]')).toBeNull();
+  });
 });
 
 describe('App — font color', () => {
